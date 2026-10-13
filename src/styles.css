@@ -25,3 +25,14 @@
 .interact-actions{display:flex;gap:7px;flex-wrap:wrap}
 .interact-actions button{background:#eee7fc;color:#6744a8;border-radius:9px;padding:10px;font-size:11px;font-weight:800}
 @media(max-width:610px){.interact-panel{left:7px;bottom:151px;width:225px;padding:12px}.interact-actions button{font-size:10px;padding:7px}}
+
+.friends-tabs{display:flex;gap:7px;border-bottom:1px solid #eae5f2;padding-bottom:15px;margin-bottom:20px;flex-wrap:wrap}
+.friends-tabs button{padding:11px 15px;border-radius:10px;background:#eee9f5;color:#827197;font-weight:800;font-size:12px;display:flex;gap:10px;align-items:center}
+.friends-tabs button.active{background:#7952d4;color:#fff}
+.friends-tabs button span{background:#ffffff41;border-radius:7px;padding:3px 7px;font-size:10px}
+.friends-list{display:grid;gap:11px}.friend-card{background:#fff;border:1px solid #eae6f2;padding:16px;border-radius:14px;display:flex;align-items:center;gap:13px}
+.friend-name{flex:1;min-width:0}.friend-name strong{font-size:13px;display:block}.friend-name small{font-size:11px;color:#9488a5;display:block;margin-top:4px}
+.friend-state{color:#8d78a8;font-size:11px;font-weight:700}.friend-actions{display:flex;gap:7px}
+.friend-actions button{font-size:11px;padding:10px 12px}.friends-helper{margin-top:20px;padding:18px;border-radius:14px;background:#efe9fc;color:#7352b9;display:flex;align-items:center;gap:12px}
+.friends-helper strong{color:#43315f;font-size:13px}.friends-helper p{font-size:12px;line-height:1.6;margin-top:5px;color:#817294}
+@media(max-width:610px){.friend-card{flex-wrap:wrap}.friend-actions{width:100%;justify-content:flex-end}.friend-state{font-size:10px}.friend-name{min-width:130px}}

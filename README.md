@@ -58,3 +58,7 @@ Read docs/MVP_SCOPE.md and docs/API.md before publicly deploying.
 No copyrighted The Sims, Lagos Life or Claude-of-Duty game assets have been copied into this repository.
 
 Multiplayer public rooms can be shared using the Invite button in the world UI. Player lists include Block and Report actions; reports are stored locally and require an operational moderation workflow before production.
+
+## In-world friendships
+
+Click another player avatar and choose **Add friend**. The recipient can accept or decline from the **Friends & requests** sidebar page. Friendships are stored only in Simcaster; they do not follow/unfollow Farcaster accounts. Blocking a player also removes any existing Simcaster friendship.

@@ -25,3 +25,23 @@ test('sessions are random, revocable, and account persisted',()=>{
     assert.equal(store.verifySession(token),null);
   }finally {fs.rmSync(temp,{recursive:true,force:true});}
 });
+
+test('friend requests require consent and persist across restarts',()=>{
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'simcaster-friends-'));
+  try{
+    const store=new Store(path.join(temp,'state.json'));
+    store.userFor(101,{displayName:'Alex'});store.userFor(102,{displayName:'Mia'});
+    assert.throws(()=>store.requestFriend(101,999),/not joined/);
+    store.requestFriend(101,102);
+    assert.equal(store.friendsFor(101)[0].status,'sent');
+    assert.equal(store.friendsFor(102)[0].status,'incoming');
+    assert.throws(()=>store.acceptFriend(101,102));
+    store.acceptFriend(102,101);
+    assert.equal(store.friendsFor(101)[0].status,'friends');
+    const fromDisk=new Store(path.join(temp,'state.json'));
+    assert.equal(fromDisk.friendsFor(102)[0].status,'friends');
+    fromDisk.block(101,102);
+    assert.equal(fromDisk.friendsFor(101).length,0);
+    assert.throws(()=>fromDisk.requestFriend(102,101),/blocked/);
+  }finally{fs.rmSync(temp,{recursive:true,force:true});}
+});

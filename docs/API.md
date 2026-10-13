@@ -33,3 +33,5 @@ Room invitations: /?join=plaza:N or /?join=arena:N joins an existing, non-full p
 POST /api/reports (auth required) accepts {fid, reason:'harassment'|'spam'|'cheating'} and stores a local pending report. No moderation queue UI is implemented yet.
 
 The web client communicates over HTTPS and upgrades to WSS for multiplayer; it does not use mobile SDKs or native application transport.
+
+Simcaster friendships (independent from Farcaster follows): GET /api/friends, POST /api/friends/requests {fid}, POST /api/friends/accept {fid}, DELETE /api/friends/:fid. All require login. Pending requests must be accepted by the recipient; blocking removes existing friendships.

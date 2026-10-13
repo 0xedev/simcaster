@@ -319,6 +319,15 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
           <button onClick={()=>{send('emote',{name:'wave',targetId:selected.id});setSelected(null);}}>👋 Wave</button>
           <button onClick={()=>{send('emote',{name:'heart',targetId:selected.id});setSelected(null);}}>💜 Send love</button>
           <button onClick={()=>{send('emote',{name:'dance',targetId:selected.id});setSelected(null);}}>💃 Dance</button>
+          <button onClick={async()=>{
+            try {
+              const response=await fetch('/api/friends/requests',{method:'POST',credentials:'same-origin',
+                headers:{'Content-Type':'application/json'},body:JSON.stringify({fid:selected.fid})});
+              if(!response.ok)throw new Error((await response.json()).error||'Friend request failed');
+              setMessages(prev=>[...prev.slice(-36),{type:'notice',text:'Friend request sent to '+selected.name}]);
+            }catch(e){setMessages(prev=>[...prev.slice(-36),{type:'notice',text:e.message}]);}
+            setSelected(null);
+          }}>➕ Add friend</button>
         </div>
       </div>}
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}

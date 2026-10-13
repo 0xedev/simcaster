@@ -104,6 +104,7 @@ function Sidebar({tab,onTab,user,stats,config,onLogout,openMobile,setOpenMobile}
       <div className="sidebar-label">YOUR SPACE</div>
       <nav className="side-nav">{nav.map(item=>{const Icon=item.icon;return <button key={item.id} className={'nav-link '+(tab===item.id?'active':'')} onClick={()=>{onTab(item.id);setOpenMobile(false);}}><Icon size={19} strokeWidth={1.9}/><span>{item.label}</span>{item.id==='world'&&<span className="nav-online"/>}</button>;})}</nav>
       <div className="sidebar-label sidebar-label-2">YOUR CORNER</div>
+      <button className="nav-link" onClick={()=>{onTab('friends');setOpenMobile(false);}}><Users size={19}/> <span>Friends & requests</span></button>
       <button className="nav-link" onClick={()=>{onTab('home-space');setOpenMobile(false);}}><House size={19}/> <span>My apartment</span></button>
       <button className="nav-link" onClick={()=>{onTab('settings');setOpenMobile(false);}}><Settings size={19}/> <span>Settings</span></button>
       <div className="sidebar-spacer"/>
@@ -113,7 +114,7 @@ function Sidebar({tab,onTab,user,stats,config,onLogout,openMobile,setOpenMobile}
   </>;
 }
 function Topbar({user,tab,openMenu,stats,onTab}) {
-  const titles={home:'Your dashboard',feed:'Social feed',world:'Explore the world',arcade:'Game arcade',profile:'My character','home-space':'My apartment',settings:'Settings',arena:'Laser tag'};
+  const titles={home:'Your dashboard',feed:'Social feed',world:'Explore the world',arcade:'Game arcade',profile:'My character',friends:'Friends & requests','home-space':'My apartment',settings:'Settings',arena:'Laser tag'};
   return <header className="topbar">
     <div className="topbar-title"><button className="hamburger" onClick={openMenu}><Menu size={22}/></button><div><small>SIMCASTER / {tab.toUpperCase()}</small><h2>{titles[tab]}</h2></div></div>
     <div className="topbar-actions"><span className="global-online"><span className="live-pulse"/>{stats.players??0} exploring</span><button className="top-avatar" onClick={()=>onTab('profile')} title="Your character"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/></button></div>
@@ -215,6 +216,40 @@ function HomeSpace({user,notify,onArcade,onBack}) {
   }
   return <div className="home-space"><div className="home-editor"><div><span className="eyebrow">YOUR OWN LITTLE CORNER</span><h3>Decorate your space 🪴</h3><p>Add up to 15 pieces of furniture. Placement is automatic for now.</p></div><div className="furniture-row">{furniture.map((item,i)=><button disabled={busy||home.items.length>=15} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%5)-2,z:Math.floor(home.items.length/5)-2}]})}><span>{item.emoji}</span> {item.type}</button>)}<button disabled={!home.items.length||busy} onClick={()=>update({items:home.items.slice(0,-1)})}>↶ Undo</button></div></div><React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D home…</div>}><WorldView user={user} kind="home" homeItems={home.items} onBack={onBack} onArcade={onArcade}/></React.Suspense></div>;
 }
+function FriendsPage({user,notify,onWorld}){
+  const [entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[tab,setTab]=useState('friends'),[busy,setBusy]=useState(false);
+  const refresh=async()=>{try{const response=await api('/friends');setEntries(response.friends);}catch(e){notify(e.message);}finally{setLoading(false);}};
+  useEffect(()=>{refresh();},[]);
+  async function action(fid,kind){
+    try{
+      setBusy(true);
+      if(kind==='accept')await api('/friends/accept',{method:'POST',body:JSON.stringify({fid})});
+      else await api('/friends/'+fid,{method:'DELETE'});
+      notify(kind==='accept'?'Friend request accepted!':'Friendship updated');
+      await refresh();
+    }catch(e){notify(e.message);}finally{setBusy(false);}
+  }
+  const options=[{key:'friends',label:'Friends'},{key:'incoming',label:'Requests'},{key:'sent',label:'Sent'}];
+  const filtered=entries.filter(e=>e.status===tab);
+  return <div className="page-content">
+    <div className="section-heading page-heading">
+      <div><span className="eyebrow">GOOD COMPANY MAKES THE WORLD</span><h2>Your people, your little universe.</h2><p>Friendships here are private Simcaster connections, separate from Farcaster follows.</p></div>
+      <button className="primary-btn" onClick={onWorld}><Compass size={16}/> Meet players <ArrowRight size={17}/></button>
+    </div>
+    <div className="friends-tabs">{options.map(o=><button key={o.key} className={tab===o.key?'active':''} onClick={()=>setTab(o.key)}>{o.label}<span>{entries.filter(e=>e.status===o.key).length}</span></button>)}</div>
+    <div className="friends-list">{loading?<div className="loading-state"><div className="spinner"/> Loading friends…</div>:filtered.length===0?
+      <div className="empty-state">Nothing here yet. Visit the Plaza, click someone’s avatar, and choose Add friend.</div>:
+      filtered.map(friend=><div className="friend-card" key={friend.fid}>
+        <AvatarBubble name={friend.displayName} color={friend.avatar?.color||'violet'}/>
+        <div className="friend-name"><strong>{friend.displayName}</strong><small>@{friend.username||('fid-'+friend.fid)}</small></div>
+        <div className="friend-state">{friend.status==='friends'?'✓ Friends':friend.status==='incoming'?'Sent you a request':'Request pending'}</div>
+        <div className="friend-actions">{friend.status==='incoming'&&<button disabled={busy} className="primary-btn" onClick={()=>action(friend.fid,'accept')}>Accept</button>}
+          <button disabled={busy} className="secondary-btn" onClick={()=>action(friend.fid,'remove')}>{friend.status==='friends'?'Remove':friend.status==='sent'?'Cancel':'Decline'}</button></div>
+      </div>)}
+    </div>
+    <div className="friends-helper"><Users size={19}/><div><strong>Connections happen in the world.</strong><p>Walk up to another avatar in the Plaza, click them and send a friend request. The other player can accept it here.</p></div></div>
+  </div>;
+}
 function SettingsPage({user,config,onLogout}){
   return <div className="page-content"><div className="section-heading page-heading"><div><span className="eyebrow">YOUR ACCOUNT</span><h2>A space that's yours.</h2><p>Control your Simcaster session.</p></div></div><div className="settings-card"><div><Shield size={22}/><div><h3>Signed-in identity</h3><p>{user.demo?'Temporary demo user':'Farcaster FID: '+user.fid}</p></div></div><div><Globe size={22}/><div><h3>Feed connection</h3><p>{config.liveFeed?'Live Neynar API configured':'Neynar API key not configured'}</p></div></div><div><Lock size={22}/><div><h3>Session security</h3><p>Protected HTTP-only session cookie. Sign out to revoke it.</p></div></div><button className="secondary-btn" onClick={onLogout}><LogOut size={17}/> Sign out</button></div></div>;
 }
@@ -243,6 +278,7 @@ function App(){
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:
         tab==='profile'?<Profile user={user} onUser={setUser} notify={notify}/>:
+        tab==='friends'?<FriendsPage user={user} notify={notify} onWorld={()=>setTab('world')}/>:
         tab==='home-space'?<HomeSpace user={user} notify={notify} onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/>:
         <SettingsPage user={user} config={config} onLogout={logout}/>}
       </div>
