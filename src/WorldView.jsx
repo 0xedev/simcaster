@@ -82,11 +82,40 @@ function Home({items=[]}){
     <Tree x={9} z={5}/>
   </group>;
 }
-function Avatar({p,you}){
+function AvatarName({name,you}){
+  const texture=useMemo(()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=384;canvas.height=96;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle=you?'rgba(88,55,145,.95)':'rgba(34,26,55,.88)';
+    ctx.beginPath();ctx.roundRect(8,10,368,74,22);ctx.fill();
+    ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((you?'★ ':'')+name.slice(0,18),192,47,340);
+    const result=new THREE.CanvasTexture(canvas);result.colorSpace=THREE.SRGBColorSpace;
+    return result;
+  },[name,you]);
+  useEffect(()=>()=>texture.dispose(),[texture]);
+  return <sprite position={[0,2.50,0]} scale={[2.5,.62,1]}>
+    <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false}/>
+  </sprite>;
+}
+function Avatar({p,you,emote,onSelect}){
   const body=useRef();
-  useFrame(({clock})=>{if(body.current)body.current.position.y=Math.sin(clock.elapsedTime*2.4+p.x)*.035;});
+  const rightArm=useRef();
+  const leftArm=useRef();
+  useFrame(({clock})=>{
+    const time=clock.elapsedTime;
+    if(body.current){
+      body.current.position.y=Math.sin(time*2.4+p.x)*.035+(emote==='dance'?Math.abs(Math.sin(time*6))*.17:0);
+      body.current.rotation.z=emote==='dance'?Math.sin(time*7)*.2:0;
+    }
+    if(rightArm.current)rightArm.current.rotation.z=emote==='wave'?-.9+Math.sin(time*13)*.35:emote==='dance'?Math.sin(time*7)*.65:-.12;
+    if(leftArm.current)leftArm.current.rotation.z=emote==='dance'?-Math.sin(time*7)*.65:.12;
+  });
   const color=HEX[p.avatar?.color]||HEX.violet;
-  return <group position={[p.x,0,p.z]} rotation={[0,p.heading||0,0]}>
+  return <group position={[p.x,0,p.z]} rotation={[0,p.heading||0,0]}
+    onClick={e=>{e.stopPropagation();if(!you)onSelect(p);}}>
+    <AvatarName name={p.name||'Player'} you={you}/>
     <group ref={body}>
       <mesh castShadow position={[0,.68,0]}><capsuleGeometry args={[.36,.62,4,8]}/><meshStandardMaterial color={color} roughness={.75}/></mesh>
       <mesh castShadow position={[0,1.58,0]}><sphereGeometry args={[.31,14,10]}/><meshStandardMaterial color="#d9a989"/></mesh>
@@ -94,10 +123,13 @@ function Avatar({p,you}){
       <mesh position={[-.11,1.61,.28]}><sphereGeometry args={[.035,7,6]}/><meshBasicMaterial color="#33293b"/></mesh>
       <mesh position={[.11,1.61,.28]}><sphereGeometry args={[.035,7,6]}/><meshBasicMaterial color="#33293b"/></mesh>
       {[-1,1].map(s=><group key={s}>
-        <mesh castShadow position={[s*.48,.83,0]} rotation={[0,0,s*.13]}><capsuleGeometry args={[.13,.5,4,6]}/><meshStandardMaterial color={color}/></mesh>
+        <mesh ref={s===1?rightArm:leftArm} castShadow position={[s*.48,.83,0]}>
+          <capsuleGeometry args={[.13,.5,4,6]}/><meshStandardMaterial color={color}/>
+        </mesh>
         <mesh castShadow position={[s*.18,.1,0]}><capsuleGeometry args={[.16,.22,4,6]}/><meshStandardMaterial color="#39364e"/></mesh>
       </group>)}
-      {you&&<mesh position={[0,2.36,0]}><octahedronGeometry args={[.22]}/><meshStandardMaterial color="#f9d875" emissive="#f9d875" emissiveIntensity={.7}/></mesh>}
+      {you&&<mesh position={[0,2.10,0]}><octahedronGeometry args={[.20]}/><meshStandardMaterial color="#f9d875" emissive="#f9d875" emissiveIntensity={.7}/></mesh>}
+      {emote==='heart'&&<mesh position={[0,2.25,0]}><sphereGeometry args={[.20,10,10]}/><meshStandardMaterial color="#ff77ac" emissive="#ff77ac" emissiveIntensity={.65}/></mesh>}
     </group>
   </group>;
 }
@@ -158,14 +190,14 @@ function CameraRig({players,selfId}){
   });
   return null;
 }
-function Scene({players,selfId,kind,homeItems}){
+function Scene({players,selfId,kind,homeItems,effects,onSelect}){
   return <>
     <color attach="background" args={[kind==='arena'?'#2b2345':'#b2b9e5']}/>
     <fog attach="fog" args={[kind==='arena'?'#2b2345':'#bac5e0',24,64]}/>
     <ambientLight intensity={kind==='arena'?1.7:1.9}/>
     <directionalLight position={[11,22,15]} intensity={2.1} castShadow shadow-mapSize={[1024,1024]} shadow-camera-left={-24} shadow-camera-right={24} shadow-camera-top={24} shadow-camera-bottom={-24}/>
     {kind==='arena'?<Arena/>:kind==='home'?<Home items={homeItems}/>:<Plaza/>}
-    {players.map(p=><Avatar key={p.id} p={p} you={p.id===selfId}/>)}
+    {players.map(p=><Avatar key={p.id} p={p} you={p.id===selfId} emote={effects[p.id]} onSelect={onSelect}/>)}
     <CameraRig players={players} selfId={selfId}/>
   </>;
 }
@@ -176,6 +208,8 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
   const [room,setRoom]=useState('');
   const [state,setState]=useState('Connecting to world…');
   const [messages,setMessages]=useState([]);
+  const [effects,setEffects]=useState({});
+  const [selected,setSelected]=useState(null);
   const [text,setText]=useState('');
   const [seconds,setSeconds]=useState(null);
   const [end,setEnd]=useState(null);
@@ -201,7 +235,11 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       if(packet.event==='welcome'){setSelfId(d.id);setRoom(d.room);}
       if(packet.event==='snapshot'){playersRef.current=d.players;setPlayers(d.players);setSeconds(d.secondsLeft);}
       if(packet.event==='chat')setMessages(prev=>[...prev.slice(-36),{...d,type:'chat'}]);
-      if(packet.event==='emote')setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(playersRef.current.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
+      if(packet.event==='emote'){
+        setEffects(prev=>({...prev,[d.id]:d.name}));
+        setTimeout(()=>{if(active)setEffects(prev=>{const next={...prev};delete next[d.id];return next;});},1800);
+        setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(playersRef.current.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
+      }
       if(packet.event==='notice')setMessages(prev=>[...prev.slice(-36),{...d,type:'notice'}]);
       if(packet.event==='match-end'){setEnd(d);setTimeout(()=>setEnd(null),5000);}
       if(packet.event==='error')setState(d.message);
@@ -249,7 +287,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
   return <div className="world-layout">
     <div className="world-stage">
       <Canvas shadows dpr={[1,1.6]} camera={{position:[18,18,22],fov:48,near:.1,far:150}} gl={{antialias:true,powerPreference:'high-performance'}}>
-        <Scene kind={kind} players={players} selfId={selfId} homeItems={homeItems}/>
+        <Scene kind={kind} players={players} selfId={selfId} homeItems={homeItems} effects={effects} onSelect={setSelected}/>
       </Canvas>
       <div className="stage-top">
         <button className="stage-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
@@ -274,6 +312,15 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       </div>
       {kind==='arena'?<button className="shoot-control" onClick={()=>send('shoot')}><Crosshair size={23}/> FIRE</button>:
         <div className="stage-emotes"><button onClick={()=>send('emote',{name:'wave'})}>👋 Wave</button><button onClick={()=>send('emote',{name:'heart'})}>💜 Love</button><button onClick={()=>send('emote',{name:'dance'})}>💃 Dance</button></div>}
+      {selected&&selected.id!==selfId&&<div className="interact-panel">
+        <div><b>Say hello to {selected.name}</b><button onClick={()=>setSelected(null)} aria-label="Close interaction menu">×</button></div>
+        <p>Click an avatar to interact in the world.</p>
+        <div className="interact-actions">
+          <button onClick={()=>{send('emote',{name:'wave',targetId:selected.id});setSelected(null);}}>👋 Wave</button>
+          <button onClick={()=>{send('emote',{name:'heart',targetId:selected.id});setSelected(null);}}>💜 Send love</button>
+          <button onClick={()=>{send('emote',{name:'dance',targetId:selected.id});setSelected(null);}}>💃 Dance</button>
+        </div>
+      </div>}
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}
       {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':'Match complete'}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p></div>}
     </div>

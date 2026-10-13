@@ -50,7 +50,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
     const spawn = room.type === 'arena' ? ARENA_SIZE - 2 : 4;
     const p = { id,fid:user.fid,name:user.displayName,avatar:user.avatar,
       x:type==='plaza'?3+Math.random()*2:(Math.random()-.5)*spawn,z:type==='plaza'?3+Math.random()*2:(Math.random()-.5)*spawn,
-      heading:0,hp:3,score:0,ws,input:{dx:0,dz:0},lastInput:0,lastShot:0,lastChat:0,lastMove:Date.now(),downUntil:0 };
+      heading:0,hp:3,score:0,ws,input:{dx:0,dz:0},lastInput:0,lastShot:0,lastChat:0,lastEmote:0,lastMove:Date.now(),downUntil:0 };
     room.players.set(id,p);
     send(ws,'welcome',{id,room:room.key,type:room.type,serverTime:Date.now()});
     broadcast(room,'notice',{text:user.displayName.slice(0,32)+' joined the '+(type==='arena'?'arena':'world')});
@@ -79,7 +79,11 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
           if (!store.isBlocked(p.fid,target.fid)) send(target.ws,'chat',{id:p.id,fid:p.fid,name:p.name,text,time:now});
         }
       } else if (packet.event === 'emote') {
-        if (['wave','dance','heart'].includes(packet.data?.name)) broadcast(room,'emote',{id:p.id,name:packet.data.name});
+        if (!['wave','dance','heart'].includes(packet.data?.name) || now-p.lastEmote<900) return;
+        const target=room.players.get(packet.data?.targetId);
+        if (target && (store.isBlocked(p.fid,target.fid) || Math.hypot(p.x-target.x,p.z-target.z)>5)) return;
+        p.lastEmote=now;
+        broadcast(room,'emote',{id:p.id,name:packet.data.name,targetId:target?.id||null});
       } else if (packet.event === 'shoot' && type === 'arena') {
         if (now-p.lastShot < SHOT_COOLDOWN_MS || p.hp <= 0) return;
         const targets=[...room.players.values()].filter(target => canHit(p,target,now));

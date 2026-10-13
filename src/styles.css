@@ -16,3 +16,12 @@
 
 .world-loading{height:min(78vh,850px);display:flex;align-items:center;justify-content:center;gap:15px;color:#7951bb;font-size:15px;font-weight:700;background:#f1ecfc}
 .world-loading .spinner{margin:0}
+
+.interact-panel{position:absolute;z-index:6;left:22px;bottom:82px;width:min(315px,70%);background:#fff;border:1px solid #e2d8f5;box-shadow:0 15px 34px #33204e40;border-radius:16px;padding:15px}
+.interact-panel>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.interact-panel b{font:700 14px "Space Grotesk",sans-serif;color:#43335f}
+.interact-panel>div:first-child button{background:#eee8f9;color:#6d57a2;border-radius:8px;font-size:19px;width:26px;height:26px}
+.interact-panel p{color:#8b829b;font-size:11px;margin:8px 0 13px}
+.interact-actions{display:flex;gap:7px;flex-wrap:wrap}
+.interact-actions button{background:#eee7fc;color:#6744a8;border-radius:9px;padding:10px;font-size:11px;font-weight:800}
+@media(max-width:610px){.interact-panel{left:7px;bottom:151px;width:225px;padding:12px}.interact-actions button{font-size:10px;padding:7px}}
