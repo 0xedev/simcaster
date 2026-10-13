@@ -38,3 +38,5 @@
 @media(max-width:610px){.friend-card{flex-wrap:wrap}.friend-actions{width:100%;justify-content:flex-end}.friend-state{font-size:10px}.friend-name{min-width:130px}}
 
 .match-result .share-match{display:inline-flex;align-items:center;gap:7px;margin-top:13px;padding:10px 13px;border-radius:9px;background:#8460df;color:#fff;font-size:11px;font-weight:800}.match-result .close-match{position:absolute;top:6px;right:8px;background:transparent;color:#e0d7f3;font-size:23px}
+
+.interact-actions a{background:#f4f0ff;color:#6744a8;border-radius:9px;padding:10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center}.interact-actions button:disabled{opacity:.36;cursor:not-allowed}

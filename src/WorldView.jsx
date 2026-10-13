@@ -278,6 +278,9 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
   },[kind,ownerFid]);
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[messages]);
   const me=players.find(p=>p.id===selfId);
+  const activeTarget=selected?players.find(p=>p.id===selected.id):null;
+  const distanceToTarget=me&&activeTarget?Math.hypot(me.x-activeTarget.x,me.z-activeTarget.z):Infinity;
+  const closeEnough=distanceToTarget<=5;
   const send=(event,data={})=>{if(ws.current?.readyState===1)ws.current.send(JSON.stringify({event,data}));};
   function shareMatch() {
     if(!end)return;
@@ -335,22 +338,23 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
       </div>
       {kind==='arena'?<button className="shoot-control" onClick={()=>send('shoot')}><Crosshair size={23}/> FIRE</button>:
         <div className="stage-emotes"><button onClick={()=>send('emote',{name:'wave'})}>👋 Wave</button><button onClick={()=>send('emote',{name:'heart'})}>💜 Love</button><button onClick={()=>send('emote',{name:'dance'})}>💃 Dance</button></div>}
-      {selected&&selected.id!==selfId&&<div className="interact-panel">
-        <div><b>Say hello to {selected.name}</b><button onClick={()=>setSelected(null)} aria-label="Close interaction menu">×</button></div>
-        <p>Click an avatar to interact in the world.</p>
+      {activeTarget&&activeTarget.id!==selfId&&<div className="interact-panel">
+        <div><b>{activeTarget.name}</b><button onClick={()=>setSelected(null)} aria-label="Close interaction menu">×</button></div>
+        <p>{closeEnough?'You’re close enough to interact!':('Move closer to interact ('+distanceToTarget.toFixed(1)+'m away).')}</p>
         <div className="interact-actions">
-          <button onClick={()=>{send('emote',{name:'wave',targetId:selected.id});setSelected(null);}}>👋 Wave</button>
-          <button onClick={()=>{send('emote',{name:'heart',targetId:selected.id});setSelected(null);}}>💜 Send love</button>
-          <button onClick={()=>{send('emote',{name:'dance',targetId:selected.id});setSelected(null);}}>💃 Dance</button>
+          <button disabled={!closeEnough} onClick={()=>{send('emote',{name:'wave',targetId:activeTarget.id});setSelected(null);}}>👋 Wave</button>
+          <button disabled={!closeEnough} onClick={()=>{send('emote',{name:'heart',targetId:activeTarget.id});setSelected(null);}}>💜 Send love</button>
+          <button disabled={!closeEnough} onClick={()=>{send('emote',{name:'dance',targetId:activeTarget.id});setSelected(null);}}>💃 Dance</button>
           <button onClick={async()=>{
             try {
               const response=await fetch('/api/friends/requests',{method:'POST',credentials:'same-origin',
-                headers:{'Content-Type':'application/json'},body:JSON.stringify({fid:selected.fid})});
+                headers:{'Content-Type':'application/json'},body:JSON.stringify({fid:activeTarget.fid})});
               if(!response.ok)throw new Error((await response.json()).error||'Friend request failed');
-              setMessages(prev=>[...prev.slice(-36),{type:'notice',text:'Friend request sent to '+selected.name}]);
+              setMessages(prev=>[...prev.slice(-36),{type:'notice',text:'Friend request sent to '+activeTarget.name}]);
             }catch(e){setMessages(prev=>[...prev.slice(-36),{type:'notice',text:e.message}]);}
             setSelected(null);
           }}>➕ Add friend</button>
+          {activeTarget.fid<900000000&&<a href={'https://warpcast.com/~/profiles/'+activeTarget.fid} target="_blank" rel="noopener noreferrer">View Farcaster ↗</a>}
         </div>
       </div>}
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}
