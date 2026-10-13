@@ -1,0 +1,29 @@
+# Implemented API / WebSocket contract
+
+All paths below are under /api. Mutating routes require JSON and an exact Origin equal to APP_ORIGIN. Sessions use an HttpOnly, SameSite=Lax cookie named simcaster_session.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /health | no | probe |
+| GET | /config | no | capability flags |
+| GET | /auth/challenge | no | 5-minute SIWF nonce |
+| POST | /auth/verify | no | verified message, signature and nonce; set session |
+| POST | /auth/demo | no | development-only local session |
+| POST | /auth/logout | yes | session revocation |
+| GET | /me | yes | user and avatar |
+| PUT | /me/avatar | yes | validated avatar colors/outfits/hair |
+| GET | /me/home | yes | owner's furniture |
+| PUT | /me/home | yes | replace validated furniture |
+| GET | /feed | yes | Neynar trend/following, or labelled sample in demo |
+| GET | /leaderboard | yes | Laser Tag wins |
+| GET | /world/status | yes | active connections and rooms |
+| POST | /blocks | yes | block a player from receiving/sending their chat |
+| POST | /casts | yes | 501, not yet authorized for publishing |
+
+WebSocket URL: /socket?room=plaza|arena|home. Login cookie and Origin are required. The room type is server allowlisted. Each home is scoped to its owner's FID.
+
+Client messages: move {dx,dz} (intent only); chat {text} (180 characters, 1.5s cooldown); emote {name: wave|dance|heart}; shoot {} (arena only).
+
+Server messages: welcome {id,room,type,serverTime}; snapshot {at,players,secondsLeft}; chat {id,fid,name,text,time}; notice {text}; emote {id,name}; shot {id,target,hit}; match-end {winner,scores}; error {message}.
+
+The server owns positions, headings, HP, hits, scores, match results and connection IDs. These snapshots are JSON for first-release readability; production will require bandwidth optimization and distributed room ownership.
