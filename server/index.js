@@ -154,6 +154,21 @@ app.post('/api/reports',requireAuth,(req,res)=>{
   try {store.report(req.user.fid,Number(req.body?.fid),req.body?.reason);res.status(201).json({ok:true});}
   catch(e){fail(res,e.message);}
 });
+app.use('/api/friends',throttle('friends',45,60000));
+app.get('/api/friends',requireAuth,(req,res)=>res.json({friends:store.friendsFor(req.user.fid)}));
+app.post('/api/friends/requests',requireAuth,(req,res)=>{
+  try {store.requestFriend(req.user.fid,req.body?.fid);res.status(201).json({ok:true});}
+  catch(e){fail(res,e.message);}
+});
+app.post('/api/friends/accept',requireAuth,(req,res)=>{
+  try {store.acceptFriend(req.user.fid,req.body?.fid);res.json({ok:true});}
+  catch(e){fail(res,e.message);}
+});
+app.delete('/api/friends/:fid',requireAuth,(req,res)=>{
+  const fid=Number(req.params.fid);
+  if(!Number.isSafeInteger(fid)||fid<1)return fail(res,'Invalid fid');
+  store.removeFriend(req.user.fid,fid);res.json({ok:true});
+});
 app.get('/api/feed',requireAuth,async(req,res)=>{
   const mode=req.query.mode==='following'?'following':'trending';
   if(!process.env.NEYNAR_API_KEY) {

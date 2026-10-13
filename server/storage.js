@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [] });
+const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [], friends: {} });
 const palettes = ['violet', 'citrus', 'coral', 'mint', 'sky'];
 const outfits = ['street', 'casual', 'sport', 'formal'];
 const hairStyles = ['short', 'curls', 'buzz', 'long'];
@@ -114,12 +114,45 @@ export class Store {
       fid: Number(fid), wins, displayName: this.findUser(fid)?.displayName || 'Player'
     })).sort((a, b) => b.wins - a.wins).slice(0,10);
   }
+  friendshipKey(a,b) { return [Number(a),Number(b)].sort((x,y)=>x-y).join(':'); }
+  requestFriend(from, to) {
+    const a=Number(from),b=Number(to);
+    if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b) || a<1 || b<1 || a===b) throw new Error('Invalid friend request');
+    if (!this.findUser(b)) throw new Error('This player has not joined Simcaster');
+    if (this.isBlocked(a,b)) throw new Error('This player is blocked');
+    const key=this.friendshipKey(a,b);
+    const previous=this.state.friends[key];
+    if(previous?.status==='accepted')throw new Error('Already friends');
+    if(previous?.status==='pending')throw new Error(previous.from===a?'Request already sent':'You have an incoming request — accept it on Friends');
+    this.state.friends[key]={a:Math.min(a,b),b:Math.max(a,b),from:a,status:'pending',createdAt:Date.now()};
+    this.save();
+  }
+  acceptFriend(recipient, from) {
+    const a=Number(recipient), b=Number(from), key=this.friendshipKey(a,b);
+    const entry=this.state.friends[key];
+    if (!entry || entry.status!=='pending' || entry.from!==b) throw new Error('Incoming friend request not found');
+    if (this.isBlocked(a,b)) throw new Error('This player is blocked');
+    entry.status='accepted'; entry.acceptedAt=Date.now();this.save();
+  }
+  removeFriend(a,b) {
+    const key=this.friendshipKey(a,b);
+    if(this.state.friends[key]) {delete this.state.friends[key];this.save();}
+  }
+  friendsFor(fid) {
+    const id=Number(fid);
+    return Object.values(this.state.friends).filter(x=>x.a===id||x.b===id).map(x=>{
+      const other=x.a===id?x.b:x.a,account=this.findUser(other);
+      return {fid:other,displayName:account?.displayName||'Player',username:account?.username||'',
+        avatar:account?.avatar||null,status:x.status==='accepted'?'friends':x.from===id?'sent':'incoming',since:x.createdAt};
+    });
+  }
   block(fid, other) {
     if (Number(fid) === Number(other)) throw new Error('Cannot block yourself');
     const key = String(fid);
     const list = new Set(this.state.blocked[key] || []);
     list.add(Number(other));
     this.state.blocked[key] = [...list];
+    delete this.state.friends[this.friendshipKey(fid,other)];
     this.save();
   }
   report(reporter, subject, reason) {
