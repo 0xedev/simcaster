@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ArrowLeft, Send, Users, Move, Crosshair, Heart, Smile, Wifi, WifiOff, Trophy, Flag, MessageCircle, Volume2 } from 'lucide-react';
+import { ArrowLeft, Send, Users, Move, Crosshair, Heart, Smile, Wifi, WifiOff, Trophy, Flag, MessageCircle, Volume2, ExternalLink } from 'lucide-react';
 
 const HEX={violet:'#8d64f7',citrus:'#eec35b',coral:'#ff898a',mint:'#5dd3ba',sky:'#73bff2'};
 const BUILDINGS=[
@@ -254,7 +254,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
         setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(playersRef.current.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
       }
       if(packet.event==='notice')setMessages(prev=>[...prev.slice(-36),{...d,type:'notice'}]);
-      if(packet.event==='match-end'){setEnd(d);setTimeout(()=>setEnd(null),5000);}
+      if(packet.event==='match-end'){setEnd(d);setTimeout(()=>{if(active)setEnd(null);},10000);}
       if(packet.event==='error')setState(d.message);
     };
     };
@@ -279,6 +279,14 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[messages]);
   const me=players.find(p=>p.id===selfId);
   const send=(event,data={})=>{if(ws.current?.readyState===1)ws.current.send(JSON.stringify({event,data}));};
+  function shareMatch() {
+    if(!end)return;
+    const myResult=end.scores?.find(p=>p.id===selfId);
+    const text=end.winner===selfId
+      ? 'I won a Laser Tag match on Simcaster 🎮 — '+(myResult?.score||0)+' points. Come join the social gaming world!'
+      : 'Just played a Laser Tag match on Simcaster 🎮 — '+(myResult?.score||0)+' points. Meet me in the arcade!';
+    window.open('https://warpcast.com/~/compose?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');
+  }
   function inviteFriend() {
     const url=new URL(location.origin);
     url.searchParams.set('join',room);
@@ -346,7 +354,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
         </div>
       </div>}
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}
-      {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':'Match complete'}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p></div>}
+      {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':end.winner?'Match complete':'It's a draw!'}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p><button className="share-match" onClick={shareMatch}>Share to Farcaster <ExternalLink size={14}/></button><button className="close-match" onClick={()=>setEnd(null)} aria-label="Close match result">×</button></div>}
     </div>
     <aside className={'world-panel '+(!showChat?'panel-collapsed':'')}>
       <div className="world-panel-head"><div><strong>Live room</strong><small>{players.length} people here</small></div><button onClick={()=>setShowChat(!showChat)} aria-label="Toggle chat"><MessageCircle size={19}/></button></div>
