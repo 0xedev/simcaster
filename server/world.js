@@ -137,15 +137,22 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
           if(room.type!=='plaza' || !collidesWithPlaza(p.x,nextZ))p.z=nextZ;
         }
       }
-      if (room.type==='arena' && room.players.size>1) {
-        if (!room.started) room.started=now;
-        const winner=[...room.players.values()].find(p=>p.score>=7);
-        if (winner || now-room.started>180000) {
-          const ranked=[...room.players.values()].sort((a,b)=>b.score-a.score);
-          if (!winner) winner=ranked[0];
-          if (winner && winner.score > (ranked[1]?.score ?? -1)) store.recordWin(winner.fid);
-          broadcast(room,'match-end',{winner:winner?.id || null, scores:ranked.map(p=>({id:p.id,name:p.name,score:p.score}))});
-          room.started=now; for(const p of room.players.values()) p.score=0;
+      if(room.type==='arena'){
+        if(room.players.size<2){
+          room.started=null;
+          for(const participant of room.players.values()) participant.score=0;
+        }else{
+          if(!room.started)room.started=now;
+          const reachedScore=[...room.players.values()].find(participant=>participant.score>=7);
+          if(reachedScore || now-room.started>=180000){
+            const ranked=[...room.players.values()].sort((a,b)=>b.score-a.score);
+            const tied=ranked.length>1 && ranked[0].score===ranked[1].score;
+            const winner=tied?null:(reachedScore||ranked[0]);
+            if(winner)store.recordWin(winner.fid);
+            broadcast(room,'match-end',{winner:winner?.id||null,scores:ranked.map(participant=>({id:participant.id,name:participant.name,score:participant.score}))});
+            room.started=now;
+            for(const participant of room.players.values())participant.score=0;
+          }
         }
       }
       broadcast(room,'snapshot',{at:now,players:[...room.players.values()].map(publicPlayer),
