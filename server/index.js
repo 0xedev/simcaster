@@ -151,6 +151,7 @@ app.get('/api/feed',requireAuth,async(req,res)=>{
 });
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
 app.post('/api/casts',requireAuth,(_,res)=>fail(res,'In-app publishing needs a per-user approved signer. Open the Farcaster composer instead.',501));
+app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 const dist=path.resolve(root,'dist');
 if(fs.existsSync(dist)) {
   app.use(express.static(dist,{maxAge:'1h'}));
@@ -158,5 +159,4 @@ if(fs.existsSync(dist)) {
 }
 const server=app.listen(PORT,()=>console.log('Simcaster API listening on '+PORT+'; demo='+DEMO));
 const world=attachWorld(server,store,authFromReq,APP_ORIGIN);
-app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 process.on('SIGTERM',()=>{world.close();server.close();});
