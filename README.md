@@ -18,7 +18,7 @@ The application is delivered via HTTPS in the browser, with WebGL2 rendering and
 
 Open http://localhost:5173. The Vite development server proxies HTTP and WebSocket connections to port 3001. Enable SIMCASTER_DEMO_MODE=true only for development. Open a second incognito window and use a different demo name to test multiplayer.
 
-- World: WASD/arrow keys or mobile touch pad; room text chat and emotes.
+- World: WASD/arrow keys, drag to orbit, scroll wheel to zoom, multiplayer chat and player interaction emotes.
 - Arcade: Laser Tag, 2–8 players per room; face your opponent, Space/FIRE to shoot; first to 7 scores wins.
 - Apartment: add furniture and inspect your private home.
 - Feed: actual Neynar following/trending casts only with NEYNAR_API_KEY. Fictional examples are clearly marked in demo mode.
@@ -51,7 +51,7 @@ When NODE_ENV=production, SIMCASTER_DEMO_MODE=true is explicitly rejected.
 
 ## Important production caveats
 
-The current persistence is .data/simcaster.json (atomic file replacement). It is **single-process**, not suitable for horizontally scaled production use. Session revocation, game scores and home data need PostgreSQL plus backed-up migrations; room matchmaking needs a distributed coordinator such as Colyseus/Redis, and more advanced moderation. Incoming room chat has basic length/rate controls but no operational moderation dashboard. Homes cannot host guests yet. Shooter hit detection has no obstacle occlusion and is prototype quality. There is no browser installation flow or mobile application.
+The current persistence is .data/simcaster.json (atomic file replacement). It is **single-process**, not suitable for horizontally scaled production use. Session revocation, game scores and home data need PostgreSQL plus backed-up migrations; room matchmaking needs a distributed coordinator such as Colyseus/Redis, and more advanced moderation. Incoming room chat has basic length/rate controls but no operational moderation dashboard. Homes support visits by accepted Simcaster friends (8 occupants per room). Shooter hit detection has no obstacle occlusion and is prototype quality. There is no installation flow or native application.
 
 Read docs/MVP_SCOPE.md and docs/API.md before publicly deploying.
 
@@ -66,3 +66,7 @@ Click another player avatar and choose **Add friend**. The recipient can accept 
 ### Visiting apartments
 
 Accepted friends can click **Visit home** on the Friends page. They join the homeowner's private WebSocket room, see the saved furniture layout, and interact with other visitors. The owner retains exclusive decoration permission. Requests from non-friends are rejected by the API and by the WebSocket handshake.
+
+## Browser deployment
+
+See [Deployment](docs/DEPLOYMENT.md) and the root Dockerfile for running the browser website and WebSocket backend on one long-lived Node host. A static-only Vercel deployment cannot provide real-time rooms or authentication. The temporary sandbox preview is not permanent hosting.
