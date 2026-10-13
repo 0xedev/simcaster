@@ -202,6 +202,13 @@ function Scene({players,selfId,kind,homeItems,effects,onSelect}){
   </>;
 }
 export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],onBack,onArcade}){
+  const [webglSupported]=useState(()=>{
+    try {
+      const probe=document.createElement('canvas');
+      const context=probe.getContext('webgl2',{failIfMajorPerformanceCaveat:false});
+      return Boolean(context);
+    }catch{return false;}
+  });
   const [players,setPlayers]=useState([]);
   const playersRef=useRef([]);
   const [selfId,setSelfId]=useState('');
@@ -312,9 +319,9 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
     onPointerUp:()=>{touch.current={dx:0,dz:0};},onPointerCancel:()=>{touch.current={dx:0,dz:0};}});
   return <div className="world-layout">
     <div className="world-stage">
-      <Canvas shadows dpr={[1,1.6]} camera={{position:[18,18,22],fov:48,near:.1,far:150}} gl={{antialias:true,powerPreference:'high-performance'}}>
+      {webglSupported?<Canvas shadows dpr={[1,1.6]} camera={{position:[18,18,22],fov:48,near:.1,far:150}} gl={{antialias:true,powerPreference:'high-performance'}}>
         <Scene kind={kind} players={players} selfId={selfId} homeItems={homeItems} effects={effects} onSelect={setSelected}/>
-      </Canvas>
+      </Canvas>:<div className="graphics-unavailable" role="alert"><h2>3D graphics unavailable</h2><p>Your browser needs WebGL2 and hardware graphics enabled to enter the Simcaster world. Update your desktop browser or enable graphics acceleration.</p><button onClick={onBack}>Return to dashboard</button></div>}
       <div className="stage-top">
         <button className="stage-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
         <div className="location-pill"><span className="live-pulse"/> {kind==='arena'?'LASER TAG ARENA':kind==='home'?(ownerFid&&Number(ownerFid)!==Number(user.fid)?'FRIEND’S APARTMENT':'MY APARTMENT'):'THE COMMONS PLAZA'}</div>
