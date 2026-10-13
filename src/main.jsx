@@ -207,16 +207,24 @@ function Profile({user,onUser,notify}) {
   </div>;
 }
 const furniture=[{type:'sofa',emoji:'🛋️'},{type:'table',emoji:'🪵'},{type:'plant',emoji:'🪴'},{type:'lamp',emoji:'💡'},{type:'rug',emoji:'🧶'},{type:'chair',emoji:'🪑'}];
-function HomeSpace({user,notify,onArcade,onBack}) {
+function HomeSpace({user,ownerFid=null,notify,onArcade,onBack}) {
+  const owner=ownerFid||user.fid, isOwner=Number(owner)===Number(user.fid);
   const [home,setHome]=useState({items:[]}),[busy,setBusy]=useState(false);
-  useEffect(()=>{api('/me/home').then(r=>setHome(r.home)).catch(e=>notify(e.message));},[]);
+  useEffect(()=>{
+    setHome({items:[]});
+    api(isOwner?'/me/home':'/homes/'+owner).then(r=>setHome(r.home)).catch(e=>notify(e.message));
+  },[owner]);
   async function update(next){
+    if(!isOwner)return;
     try{setBusy(true);const r=await api('/me/home',{method:'PUT',body:JSON.stringify(next)});setHome(r.home);notify('Apartment updated!');}
     catch(e){notify(e.message);}finally{setBusy(false);}
   }
-  return <div className="home-space"><div className="home-editor"><div><span className="eyebrow">YOUR OWN LITTLE CORNER</span><h3>Decorate your space 🪴</h3><p>Add up to 15 pieces of furniture. Placement is automatic for now.</p></div><div className="furniture-row">{furniture.map((item,i)=><button disabled={busy||home.items.length>=15} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%5)-2,z:Math.floor(home.items.length/5)-2}]})}><span>{item.emoji}</span> {item.type}</button>)}<button disabled={!home.items.length||busy} onClick={()=>update({items:home.items.slice(0,-1)})}>↶ Undo</button></div></div><React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D home…</div>}><WorldView user={user} kind="home" homeItems={home.items} onBack={onBack} onArcade={onArcade}/></React.Suspense></div>;
+  return <div className="home-space"><div className="home-editor">
+    <div><span className="eyebrow">{isOwner?'YOUR OWN LITTLE CORNER':'VISITING A FRIEND'}</span><h3>{isOwner?'Decorate your space 🪴':'Welcome to your friend’s apartment 🏠'}</h3><p>{isOwner?'Add up to 15 pieces of furniture. Placement is automatic for now.':'You can chat and interact here. Only the owner can move furniture.'}</p></div>
+    {isOwner&&<div className="furniture-row">{furniture.map((item,i)=><button disabled={busy||home.items.length>=15} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%5)-2,z:Math.floor(home.items.length/5)-2}]})}><span>{item.emoji}</span> {item.type}</button>)}<button disabled={!home.items.length||busy} onClick={()=>update({items:home.items.slice(0,-1)})}>↶ Undo</button></div>}
+  </div><React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D home…</div>}><WorldView user={user} kind="home" ownerFid={owner} homeItems={home.items} onBack={onBack} onArcade={onArcade}/></React.Suspense></div>;
 }
-function FriendsPage({user,notify,onWorld}){
+function FriendsPage({user,notify,onWorld,onVisit}){
   const [entries,setEntries]=useState([]),[loading,setLoading]=useState(true),[tab,setTab]=useState('friends'),[busy,setBusy]=useState(false);
   const refresh=async()=>{try{const response=await api('/friends');setEntries(response.friends);}catch(e){notify(e.message);}finally{setLoading(false);}};
   useEffect(()=>{refresh();},[]);
@@ -243,7 +251,7 @@ function FriendsPage({user,notify,onWorld}){
         <AvatarBubble name={friend.displayName} color={friend.avatar?.color||'violet'}/>
         <div className="friend-name"><strong>{friend.displayName}</strong><small>@{friend.username||('fid-'+friend.fid)}</small></div>
         <div className="friend-state">{friend.status==='friends'?'✓ Friends':friend.status==='incoming'?'Sent you a request':'Request pending'}</div>
-        <div className="friend-actions">{friend.status==='incoming'&&<button disabled={busy} className="primary-btn" onClick={()=>action(friend.fid,'accept')}>Accept</button>}
+        <div className="friend-actions">{friend.status==='friends'&&<button className="primary-btn" onClick={()=>onVisit(friend.fid)}><House size={14}/> Visit home</button>}{friend.status==='incoming'&&<button disabled={busy} className="primary-btn" onClick={()=>action(friend.fid,'accept')}>Accept</button>}
           <button disabled={busy} className="secondary-btn" onClick={()=>action(friend.fid,'remove')}>{friend.status==='friends'?'Remove':friend.status==='sent'?'Cancel':'Decline'}</button></div>
       </div>)}
     </div>
@@ -256,6 +264,8 @@ function SettingsPage({user,config,onLogout}){
 function App(){
   const [config,setConfig]=useState({demoMode:false,liveFeed:false});
   const [user,setUser]=useState(null),[loading,setLoading]=useState(true);
+  const [visitingFid,setVisitingFid]=useState(null);
+  function navigate(id){if(id==='home-space')setVisitingFid(null);setTab(id);}
   const [tab,setTab]=useState(()=>{const room=new URLSearchParams(location.search).get('join')||'';return room.startsWith('arena:')?'arena':room.startsWith('plaza:')?'world':'home';}),[toast,setToast]=useState(''),[mobileNav,setMobileNav]=useState(false);
   const [stats,setStats]=useState({players:0,rooms:0}),[leaderboard,setLeaderboard]=useState([]);
   const notify=message=>setToast(message);
@@ -269,8 +279,8 @@ function App(){
   return <AuthKitProvider config={authConfig}>
     {!user?<Login config={config} onSignedIn={u=>setUser(u)} onToast={notify}/>:
     <div className="app-shell">
-      <Sidebar tab={tab} onTab={setTab} user={user} config={config} stats={stats} onLogout={logout} openMobile={mobileNav} setOpenMobile={setMobileNav}/>
-      <div className="main-shell"><Topbar user={user} tab={tab} stats={stats} openMenu={()=>setMobileNav(true)} onTab={setTab}/>
+      <Sidebar tab={tab} onTab={navigate} user={user} config={config} stats={stats} onLogout={logout} openMobile={mobileNav} setOpenMobile={setMobileNav}/>
+      <div className="main-shell"><Topbar user={user} tab={tab} stats={stats} openMenu={()=>setMobileNav(true)} onTab={navigate}/>
       {user.demo&&<div className="demo-strip"><span>◈</span> DEMO MODE — your identity is local and your social feed contains sample content. <span>Not a live Farcaster account.</span></div>}
       {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab}/>:
         tab==='feed'?<SocialFeed user={user} notify={notify}/>:
@@ -278,8 +288,8 @@ function App(){
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:
         tab==='profile'?<Profile user={user} onUser={setUser} notify={notify}/>:
-        tab==='friends'?<FriendsPage user={user} notify={notify} onWorld={()=>setTab('world')}/>:
-        tab==='home-space'?<HomeSpace user={user} notify={notify} onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/>:
+        tab==='friends'?<FriendsPage user={user} notify={notify} onWorld={()=>setTab('world')} onVisit={fid=>{setVisitingFid(fid);setTab('home-space');}}/>:
+        tab==='home-space'?<HomeSpace user={user} ownerFid={visitingFid} notify={notify} onBack={()=>setTab(visitingFid?'friends':'home')} onArcade={()=>setTab('arcade')}/>:
         <SettingsPage user={user} config={config} onLogout={logout}/>}
       </div>
       <nav className="mobile-bottom-nav">{nav.slice(0,5).map(item=>{const Icon=item.icon;return <button key={item.id} className={tab===item.id?'active':''} onClick={()=>setTab(item.id)}><Icon size={21}/><small>{item.id==='home'?'Home':item.id==='feed'?'Feed':item.id==='world'?'World':item.id==='arcade'?'Games':'Me'}</small></button>;})}</nav>

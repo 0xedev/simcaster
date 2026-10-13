@@ -45,3 +45,19 @@ test('friend requests require consent and persist across restarts',()=>{
     assert.throws(()=>fromDisk.requestFriend(102,101),/blocked/);
   }finally{fs.rmSync(temp,{recursive:true,force:true});}
 });
+
+test('home visits require accepted friendship and respect blocking',()=>{
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'simcaster-visits-'));
+  try{
+    const store=new Store(path.join(temp,'state.json'));
+    store.userFor(701,{displayName:'Owner'});store.userFor(702,{displayName:'Guest'});
+    assert.equal(store.canVisitHome(701,701),true);
+    assert.equal(store.canVisitHome(702,701),false);
+    store.requestFriend(701,702);
+    assert.equal(store.canVisitHome(702,701),false);
+    store.acceptFriend(702,701);
+    assert.equal(store.canVisitHome(702,701),true);
+    store.block(701,702);
+    assert.equal(store.canVisitHome(702,701),false);
+  }finally{fs.rmSync(temp,{recursive:true,force:true});}
+});

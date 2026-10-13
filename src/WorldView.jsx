@@ -201,7 +201,7 @@ function Scene({players,selfId,kind,homeItems,effects,onSelect}){
     <CameraRig players={players} selfId={selfId}/>
   </>;
 }
-export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcade}){
+export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],onBack,onArcade}){
   const [players,setPlayers]=useState([]);
   const playersRef=useRef([]);
   const [selfId,setSelfId]=useState('');
@@ -223,7 +223,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
     const proto=location.protocol==='https:'?'wss:':'ws:';
     const invite=new URLSearchParams(location.search).get('join');
     const query='room='+encodeURIComponent(kind)+((kind!=='home' && invite?.startsWith(kind+':'))?'&instance='+encodeURIComponent(invite):'');
-    const socket=new WebSocket(proto+'//'+location.host+'/socket?'+query);
+    const socket=new WebSocket(proto+'//'+location.host+'/socket?'+query+(kind==='home'?'&owner='+encodeURIComponent(ownerFid||user.fid):''));
     ws.current=socket;
     socket.onopen=()=>{if(active)setState('Connected');};
     socket.onerror=()=>{if(active)setState('Connection error');};
@@ -260,7 +260,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       socket.send(JSON.stringify({event:'move',data:{dx:Math.max(-1,Math.min(1,dx)),dz:Math.max(-1,Math.min(1,dz))}}));
     },90);
     return ()=>{active=false;clearInterval(interval);socket.close();window.removeEventListener('keydown',onDown);window.removeEventListener('keyup',onUp);keys.current.clear();};
-  },[kind]);
+  },[kind,ownerFid]);
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[messages]);
   const me=players.find(p=>p.id===selfId);
   const send=(event,data={})=>{if(ws.current?.readyState===1)ws.current.send(JSON.stringify({event,data}));};
@@ -291,7 +291,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       </Canvas>
       <div className="stage-top">
         <button className="stage-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
-        <div className="location-pill"><span className="live-pulse"/> {kind==='arena'?'LASER TAG ARENA':kind==='home'?'MY APARTMENT':'THE COMMONS PLAZA'}</div>
+        <div className="location-pill"><span className="live-pulse"/> {kind==='arena'?'LASER TAG ARENA':kind==='home'?(ownerFid&&Number(ownerFid)!==Number(user.fid)?'FRIEND’S APARTMENT':'MY APARTMENT'):'THE COMMONS PLAZA'}</div>
         <div className="stage-counter"><Users size={15}/> {players.length} online</div>
         {kind!=='home'&&<button className="stage-back stage-invite" onClick={inviteFriend}>Invite ↗</button>}
       </div>

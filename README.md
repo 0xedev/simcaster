@@ -62,3 +62,7 @@ Multiplayer public rooms can be shared using the Invite button in the world UI. 
 ## In-world friendships
 
 Click another player avatar and choose **Add friend**. The recipient can accept or decline from the **Friends & requests** sidebar page. Friendships are stored only in Simcaster; they do not follow/unfollow Farcaster accounts. Blocking a player also removes any existing Simcaster friendship.
+
+### Visiting apartments
+
+Accepted friends can click **Visit home** on the Friends page. They join the homeowner's private WebSocket room, see the saved furniture layout, and interact with other visitors. The owner retains exclusive decoration permission. Requests from non-friends are rejected by the API and by the WebSocket handshake.

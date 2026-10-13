@@ -35,3 +35,5 @@ POST /api/reports (auth required) accepts {fid, reason:'harassment'|'spam'|'chea
 The web client communicates over HTTPS and upgrades to WSS for multiplayer; it does not use mobile SDKs or native application transport.
 
 Simcaster friendships (independent from Farcaster follows): GET /api/friends, POST /api/friends/requests {fid}, POST /api/friends/accept {fid}, DELETE /api/friends/:fid. All require login. Pending requests must be accepted by the recipient; blocking removes existing friendships.
+
+GET /api/homes/:fid returns a home only to its owner or accepted Simcaster friends. For visiting sockets, supply /socket?room=home&owner=<ownerFID>; the owner/friend authorization is enforced during the WebSocket handshake, not merely in the client.
