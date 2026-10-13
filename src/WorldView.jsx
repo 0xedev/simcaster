@@ -186,7 +186,9 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
     const url=new URL(location.origin);
     url.searchParams.set('join',room);
     if (!room || kind==='home')return;
-    navigator.clipboard?.writeText(url.toString()).then(()=>setMessages(prev=>[...prev,{type:'notice',text:'Invite link copied!'}])).catch(()=>setMessages(prev=>[...prev,{type:'notice',text:url.toString()}]));
+    const notify=text=>setMessages(prev=>[...prev,{type:'notice',text}]);
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url.toString()).then(()=>notify('Invite link copied!')).catch(()=>notify(url.toString()));
+    else notify('Share this URL: '+url.toString());
   }
   async function action(fid,type) {
     if(!fid || fid===user.fid)return;

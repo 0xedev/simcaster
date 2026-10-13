@@ -50,3 +50,5 @@ The current persistence is .data/simcaster.json (atomic file replacement). It is
 Read docs/MVP_SCOPE.md and docs/API.md before publicly deploying.
 
 No copyrighted The Sims, Lagos Life or Claude-of-Duty game assets have been copied into this repository.
+
+Multiplayer public rooms can be shared using the Invite button in the world UI. Player lists include Block and Report actions; reports are stored locally and require an operational moderation workflow before production.

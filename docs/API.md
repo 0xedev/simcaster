@@ -27,3 +27,7 @@ Client messages: move {dx,dz} (intent only); chat {text} (180 characters, 1.5s c
 Server messages: welcome {id,room,type,serverTime}; snapshot {at,players,secondsLeft}; chat {id,fid,name,text,time}; notice {text}; emote {id,name}; shot {id,target,hit}; match-end {winner,scores}; error {message}.
 
 The server owns positions, headings, HP, hits, scores, match results and connection IDs. These snapshots are JSON for first-release readability; production will require bandwidth optimization and distributed room ownership.
+
+Room invitations: /?join=plaza:N or /?join=arena:N joins an existing, non-full public room where available. Home invitation parameters are ignored.
+
+POST /api/reports (auth required) accepts {fid, reason:'harassment'|'spam'|'cheating'} and stores a local pending report. No moderation queue UI is implemented yet.

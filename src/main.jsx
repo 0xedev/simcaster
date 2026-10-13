@@ -162,7 +162,7 @@ function SocialFeed({user,notify}) {
       {loading&&!casts.length&&<div className="loading-state"><div className="spinner"/> Loading the conversation…</div>}
       {visible.map(c=><article className="cast-card" key={c.hash}><div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button onClick={()=>openCast(c)} aria-label="Open cast"><ArrowUpRight size={18}/></button></div>
         <p className="cast-text">{c.text}</p>
-        {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {new URL(x.url).hostname}</a>)}
+        {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {x.url.replace(/^https:\/\//,'').split('/')[0]}</a>)}
         <div className="cast-actions"><button onClick={()=>openCast(c)}><MessageCircle size={17}/> {c.replies?.count||0}</button><button onClick={()=>openCast(c)}><Repeat2 size={17}/> {c.reactions?.recasts_count||0}</button><button onClick={()=>openCast(c)}><Heart size={17}/> {c.reactions?.likes_count||0}</button><button onClick={()=>openCast(c)}><Share2 size={17}/> Share</button></div>
       </article>)}
       {!loading&&!error&&visible.length===0&&<div className="empty-state">No posts found for this view.</div>}
