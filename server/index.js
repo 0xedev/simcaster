@@ -140,6 +140,13 @@ app.put('/api/me/avatar',requireAuth,(req,res)=>{
   catch(e){fail(res,e.message);}
 });
 app.get('/api/me/home',requireAuth,(req,res)=>res.json({home:store.homeFor(req.user.fid)}));
+app.get('/api/homes/:fid',requireAuth,(req,res)=>{
+  const owner=Number(req.params.fid);
+  if (!Number.isSafeInteger(owner)||owner<1) return fail(res,'Invalid homeowner',400);
+  if (!store.findUser(owner)) return fail(res,'Home not found',404);
+  if (!store.canVisitHome(req.user.fid,owner)) return fail(res,'Only the owner or accepted friends can visit',403);
+  res.json({owner,home:store.homeFor(owner)});
+});
 app.put('/api/me/home',requireAuth,(req,res)=>{
   try {res.json({home:store.updateHome(req.user.fid,req.body)});}
   catch(e){fail(res,e.message);}

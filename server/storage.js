@@ -134,6 +134,13 @@ export class Store {
     if (this.isBlocked(a,b)) throw new Error('This player is blocked');
     entry.status='accepted'; entry.acceptedAt=Date.now();this.save();
   }
+  areFriends(a,b) {
+    const friendship=this.state.friends[this.friendshipKey(a,b)];
+    return !!friendship && friendship.status==='accepted' && !this.isBlocked(a,b);
+  }
+  canVisitHome(guest,owner) {
+    return Number(guest)===Number(owner) || this.areFriends(guest,owner);
+  }
   removeFriend(a,b) {
     const key=this.friendshipKey(a,b);
     if(this.state.friends[key]) {delete this.state.friends[key];this.save();}

@@ -36,12 +36,16 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
     if (origin !== allowedOrigin) return socket.destroy();
     const user = sessionFromRequest(req);
     if (!user) return socket.destroy();
+    const type=sanitizeRoom(url.searchParams.get('room'));
+    const owner=type==='home'?Number(url.searchParams.get('owner') || user.fid):user.fid;
+    if (type==='home' && (!Number.isSafeInteger(owner)||owner<1||!store.canVisitHome(user.fid,owner)))return socket.destroy();
     wss.handleUpgrade(req,socket,head,ws => {
-      wss.emit('connection',ws,req,user,sanitizeRoom(url.searchParams.get('room')),url.searchParams.get('instance'));
+      wss.emit('connection',ws,req,user,type,url.searchParams.get('instance'),owner);
     });
   });
-  wss.on('connection', (ws,req,user,type,requested) => {
-    const room = findRoom(type,user.fid,requested);
+  wss.on('connection', (ws,req,user,type,requested,owner) => {
+    const room = findRoom(type,owner,requested);
+    if(type==='home' && room.players.size>=8){ws.close(1008,'Apartment is full');return;}
     if ([...room.players.values()].some(p => p.fid === user.fid)) {
       send(ws,'error',{message:'Already connected to this room in another tab'});
       ws.close(1008,'Duplicate session'); return;
@@ -120,7 +124,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
         }
         if (p.hp>0) {
           const d=movement(p.input,dt);
-          const size=room.type==='arena'?ARENA_SIZE:WORLD_SIZE;
+          const size=room.type==='arena'?ARENA_SIZE:room.type==='home'?5:WORLD_SIZE;
           const nextX=clamp(p.x+d.dx,-size,size);
           const nextZ=clamp(p.z+d.dz,-size,size);
           if(room.type!=='plaza' || !collidesWithPlaza(nextX,p.z))p.x=nextX;
