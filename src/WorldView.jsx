@@ -354,7 +354,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
         </div>
       </div>}
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}
-      {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':end.winner?'Match complete':'It's a draw!'}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p><button className="share-match" onClick={shareMatch}>Share to Farcaster <ExternalLink size={14}/></button><button className="close-match" onClick={()=>setEnd(null)} aria-label="Close match result">×</button></div>}
+      {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':end.winner?'Match complete':"It's a draw!"}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p><button className="share-match" onClick={shareMatch}>Share to Farcaster <ExternalLink size={14}/></button><button className="close-match" onClick={()=>setEnd(null)} aria-label="Close match result">×</button></div>}
     </div>
     <aside className={'world-panel '+(!showChat?'panel-collapsed':'')}>
       <div className="world-panel-head"><div><strong>Live room</strong><small>{players.length} people here</small></div><button onClick={()=>setShowChat(!showChat)} aria-label="Toggle chat"><MessageCircle size={19}/></button></div>
