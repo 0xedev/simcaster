@@ -1,4 +1,10 @@
 # Simcaster ✳
+## Platform requirement: web browser only
+
+Simcaster is a **browser game and Farcaster web client**. The supported targets are Chromium, Firefox and Safari on desktop and laptop; smaller browser viewports are responsive. **No iOS/Android native application, React Native/Expo project, app-store packaging, installation requirement, or mobile SDK is in scope.**
+
+The application is delivered via HTTPS in the browser, with WebGL2 rendering and WebSocket multiplayer. WASD/arrow keys move characters; drag the scene to orbit the camera; use the scroll wheel to zoom; Space fires in Laser Tag. The backend requires a long-lived Node host that supports WebSockets. A static host or serverless-only environment is insufficient for the full stack.
+
 
 **The internet, but you live in it.** A Farcaster-connected social client with an explorable procedural 3D city, real-time player avatars, private apartments and a mini-game arcade.
 
@@ -45,7 +51,7 @@ When NODE_ENV=production, SIMCASTER_DEMO_MODE=true is explicitly rejected.
 
 ## Important production caveats
 
-The current persistence is .data/simcaster.json (atomic file replacement). It is **single-process**, not suitable for horizontally scaled production use. Session revocation, game scores and home data need PostgreSQL plus backed-up migrations; room matchmaking needs a distributed coordinator such as Colyseus/Redis, and more advanced moderation. Incoming room chat has basic length/rate controls but no operational moderation dashboard. Homes cannot host guests yet. Shooter hit detection has no obstacle occlusion and is prototype quality. A browser install manifest exists, but there is not yet an offline-first caching policy.
+The current persistence is .data/simcaster.json (atomic file replacement). It is **single-process**, not suitable for horizontally scaled production use. Session revocation, game scores and home data need PostgreSQL plus backed-up migrations; room matchmaking needs a distributed coordinator such as Colyseus/Redis, and more advanced moderation. Incoming room chat has basic length/rate controls but no operational moderation dashboard. Homes cannot host guests yet. Shooter hit detection has no obstacle occlusion and is prototype quality. There is no browser installation flow or mobile application.
 
 Read docs/MVP_SCOPE.md and docs/API.md before publicly deploying.
 

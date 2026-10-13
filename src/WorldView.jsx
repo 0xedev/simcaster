@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ArrowLeft, Send, Users, Move, Crosshair, Heart, Smile, Wifi, WifiOff, Trophy, Flag, MessageCircle, Volume2 } from 'lucide-react';
 
@@ -102,15 +102,59 @@ function Avatar({p,you}){
   </group>;
 }
 function CameraRig({players,selfId}){
-  const target=useMemo(()=>new THREE.Vector3(),[]);
-  const center=useMemo(()=>new THREE.Vector3(),[]);
+  const canvas=useThree(s=>s.gl.domElement);
+  const orbit=useRef({theta:.73,phi:.69,distance:28,dragging:false,x:0,y:0,pointerId:null});
+  const goal=useMemo(()=>new THREE.Vector3(),[]);
+  const lookAt=useMemo(()=>new THREE.Vector3(),[]);
+  useEffect(()=>{
+    const state=orbit.current;
+    const onDown=e=>{
+      if(e.button!==0&&e.button!==2)return;
+      state.dragging=true;state.x=e.clientX;state.y=e.clientY;state.pointerId=e.pointerId;
+      canvas.setPointerCapture?.(e.pointerId);
+    };
+    const onMove=e=>{
+      if(!state.dragging||state.pointerId!==e.pointerId)return;
+      const dx=e.clientX-state.x,dy=e.clientY-state.y;
+      state.theta-=dx*.007;
+      state.phi=THREE.MathUtils.clamp(state.phi+dy*.006,.30,1.30);
+      state.x=e.clientX;state.y=e.clientY;
+    };
+    const onUp=e=>{
+      if(e.pointerId!==state.pointerId)return;
+      state.dragging=false;state.pointerId=null;
+      if(canvas.hasPointerCapture?.(e.pointerId))canvas.releasePointerCapture(e.pointerId);
+    };
+    const onWheel=e=>{
+      e.preventDefault();
+      state.distance=THREE.MathUtils.clamp(state.distance+Math.sign(e.deltaY)*2.1,11,42);
+    };
+    const onContext=e=>e.preventDefault();
+    canvas.addEventListener('pointerdown',onDown);
+    canvas.addEventListener('pointermove',onMove);
+    canvas.addEventListener('pointerup',onUp);
+    canvas.addEventListener('pointercancel',onUp);
+    canvas.addEventListener('wheel',onWheel,{passive:false});
+    canvas.addEventListener('contextmenu',onContext);
+    return ()=>{
+      canvas.removeEventListener('pointerdown',onDown);
+      canvas.removeEventListener('pointermove',onMove);
+      canvas.removeEventListener('pointerup',onUp);
+      canvas.removeEventListener('pointercancel',onUp);
+      canvas.removeEventListener('wheel',onWheel);
+      canvas.removeEventListener('contextmenu',onContext);
+    };
+  },[canvas]);
   useFrame(({camera})=>{
     const me=players.find(p=>p.id===selfId);
     const x=me?.x||0,z=me?.z||0;
-    target.set(x+17,18,z+20);
-    center.set(x,0,z);
-    camera.position.lerp(target,.045);
-    camera.lookAt(center);
+    const o=orbit.current;
+    goal.set(x+Math.sin(o.theta)*Math.cos(o.phi)*o.distance,
+      1.1+Math.sin(o.phi)*o.distance,
+      z+Math.cos(o.theta)*Math.cos(o.phi)*o.distance);
+    lookAt.set(x,1,z);
+    camera.position.lerp(goal,.09);
+    camera.lookAt(lookAt);
   });
   return null;
 }
@@ -223,7 +267,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
         <strong><Trophy size={18}/> {me?.score??0} / 7</strong>
         <span>SPACE / TAP TO FIRE</span>
       </div>}
-      <div className="controls-hint"><Move size={15}/> WASD / Arrows to move · {kind==='arena'?'Space to shoot':'Explore the city'}</div>
+      <div className="controls-hint"><Move size={15}/> WASD / Arrows to move · Drag to orbit · Wheel to zoom · {kind==='arena'?'Space to shoot':'Explore the city'}</div>
       <div className="touch-pad" aria-label="Touch movement controls">
         <button {...direction(0,-1)} aria-label="Move forward">↑</button>
         <div><button {...direction(-1,0)} aria-label="Move left">←</button><button {...direction(0,1)} aria-label="Move backward">↓</button><button {...direction(1,0)} aria-label="Move right">→</button></div>

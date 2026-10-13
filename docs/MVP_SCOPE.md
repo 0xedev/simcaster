@@ -14,8 +14,8 @@
 3. Safety: reports, moderation queue, sanctions, abuse/rate limits, room chat reporting, content safety and player privacy.
 4. Multiplayer: reconnection/recovery, reliable match finalization, obstacle-aware hits, anti-cheat validation, server-side blocks across rooms and invitation permissions.
 5. Scale: split web API/rooms, Colyseus or equivalent distributed room discovery/Redis, regional hosting, performance and load testing.
-6. Art/product: proper avatar animation, actual inventory and homes, friend requests and invites, mobile graphics adaptive quality.
-7. Operations: monitoring, alerts, production CSP, database migrations, automated deployments, mobile browser QA and accessibility.
+6. Art/product: proper avatar animation, actual inventory and homes, friend requests and invites, browser graphics adaptive quality.
+7. Operations: monitoring, alerts, production CSP, database migrations, automated deployments, desktop-browser WebGL/WebSocket QA and responsive layout testing and accessibility.
 
 The platform is not currently capable of 5,000 concurrent users, rich economic gameplay or full Farcaster writing.
 

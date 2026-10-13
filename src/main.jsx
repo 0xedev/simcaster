@@ -251,4 +251,4 @@ function App(){
     <Toast message={toast} onClose={()=>setToast('')}/>
   </AuthKitProvider>;
 }
-createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById('root')).render(<App/>);

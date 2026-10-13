@@ -31,3 +31,5 @@ The server owns positions, headings, HP, hits, scores, match results and connect
 Room invitations: /?join=plaza:N or /?join=arena:N joins an existing, non-full public room where available. Home invitation parameters are ignored.
 
 POST /api/reports (auth required) accepts {fid, reason:'harassment'|'spam'|'cheating'} and stores a local pending report. No moderation queue UI is implemented yet.
+
+The web client communicates over HTTPS and upgrades to WSS for multiplayer; it does not use mobile SDKs or native application transport.
