@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { movement, cleanChat, canHit, sanitizeRoom, SHOT_COOLDOWN_MS } from '../server/rules.js';
+import { movement, cleanChat, canHit, sanitizeRoom, SHOT_COOLDOWN_MS, collidesWithPlaza } from '../server/rules.js';
 test('movement is normalized, bounded and cannot teleport',()=>{
   const a=movement({dx:100,dz:100},10);
   assert.ok(Math.hypot(a.dx,a.dz)<=0.85);
@@ -23,4 +23,10 @@ test('shot requires facing, distance and rate limit',()=>{
   assert.equal(canHit(p,{...t,z:30},2000),false);
   assert.equal(canHit({...p,lastShot:1000},t,1001),false);
   assert.equal(canHit(p,{...t,hp:0},2000),false);
+});
+
+test('plaza geometry blocks the fountain and buildings',()=>{
+  assert.equal(collidesWithPlaza(0,0),true);
+  assert.equal(collidesWithPlaza(-14,-13),true);
+  assert.equal(collidesWithPlaza(5,5),false);
 });

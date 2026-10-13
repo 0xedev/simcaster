@@ -154,6 +154,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       if(packet.event==='welcome'){setSelfId(d.id);setRoom(d.room);}
       if(packet.event==='snapshot'){setPlayers(d.players);setSeconds(d.secondsLeft);}
       if(packet.event==='chat')setMessages(prev=>[...prev.slice(-36),{...d,type:'chat'}]);
+      if(packet.event==='emote')setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(players.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
       if(packet.event==='notice')setMessages(prev=>[...prev.slice(-36),{...d,type:'notice'}]);
       if(packet.event==='match-end'){setEnd(d);setTimeout(()=>setEnd(null),5000);}
       if(packet.event==='error')setState(d.message);

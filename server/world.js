@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'node:crypto';
-import { WORLD_SIZE, ARENA_SIZE, SHOT_COOLDOWN_MS, cleanChat, clamp, movement, canHit, publicPlayer, sanitizeRoom } from './rules.js';
+import { WORLD_SIZE, ARENA_SIZE, SHOT_COOLDOWN_MS, cleanChat, clamp, movement, canHit, publicPlayer, sanitizeRoom, collidesWithPlaza } from './rules.js';
 
 export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
@@ -44,7 +44,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
     const id = crypto.randomUUID();
     const spawn = room.type === 'arena' ? ARENA_SIZE - 2 : 4;
     const p = { id,fid:user.fid,name:user.displayName,avatar:user.avatar,
-      x:(Math.random()-.5)*spawn,z:(Math.random()-.5)*spawn,
+      x:type==='plaza'?3+Math.random()*2:(Math.random()-.5)*spawn,z:type==='plaza'?3+Math.random()*2:(Math.random()-.5)*spawn,
       heading:0,hp:3,score:0,ws,input:{dx:0,dz:0},lastInput:0,lastShot:0,lastChat:0,lastMove:Date.now(),downUntil:0 };
     room.players.set(id,p);
     send(ws,'welcome',{id,room:room.key,type:room.type,serverTime:Date.now()});
@@ -109,8 +109,10 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
         if (p.hp>0) {
           const d=movement(p.input,dt);
           const size=room.type==='arena'?ARENA_SIZE:WORLD_SIZE;
-          p.x=clamp(p.x+d.dx,-size,size);
-          p.z=clamp(p.z+d.dz,-size,size);
+          const nextX=clamp(p.x+d.dx,-size,size);
+          const nextZ=clamp(p.z+d.dz,-size,size);
+          if(room.type!=='plaza' || !collidesWithPlaza(nextX,p.z))p.x=nextX;
+          if(room.type!=='plaza' || !collidesWithPlaza(p.x,nextZ))p.z=nextZ;
         }
       }
       if (room.type==='arena' && room.players.size>1) {

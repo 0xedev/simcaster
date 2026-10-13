@@ -26,6 +26,12 @@ export function canHit(shooter, target, now) {
   const diff = Math.atan2(Math.sin(angle - shooter.heading), Math.cos(angle - shooter.heading));
   return Math.abs(diff) < 0.35;
 }
+export const BUILDING_FOOTPRINTS = [[-14,-13,5.8,5],[-6,-14,5.2,4.8],[6,-14,5.8,4.8],[14,-13,5.4,6],[-14,13,6,4.8],[-5.5,14,6,5],[6.5,14,5,5],[15,13,5,4.8],[-15,0,5,5],[15,0,5,5]];
+export function collidesWithPlaza(x,z){
+  if(Math.hypot(x,z)<2.65) return true; // central fountain
+  return BUILDING_FOOTPRINTS.some(([bx,bz,w,d])=>
+    Math.abs(x-bx) < w/2 + .38 && Math.abs(z-bz) < d/2 + .38);
+}
 export function sanitizeRoom(room) { return room === 'arena' || room === 'home' ? room : 'plaza'; }
 export function publicPlayer(p) {
   return { id:p.id, fid:p.fid, name:p.name, x:+p.x.toFixed(2), z:+p.z.toFixed(2),
