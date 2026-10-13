@@ -219,15 +219,28 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
   const touch=useRef({dx:0,dz:0});
   const scroll=useRef(null);
   useEffect(()=>{
-    let active=true;
+    let active=true, socket=null, retryTimer=null, retryCount=0;
     const proto=location.protocol==='https:'?'wss:':'ws:';
     const invite=new URLSearchParams(location.search).get('join');
     const query='room='+encodeURIComponent(kind)+((kind!=='home' && invite?.startsWith(kind+':'))?'&instance='+encodeURIComponent(invite):'');
-    const socket=new WebSocket(proto+'//'+location.host+'/socket?'+query+(kind==='home'?'&owner='+encodeURIComponent(ownerFid||user.fid):''));
-    ws.current=socket;
-    socket.onopen=()=>{if(active)setState('Connected');};
-    socket.onerror=()=>{if(active)setState('Connection error');};
-    socket.onclose=()=>{if(active)setState('Disconnected — refresh to reconnect');};
+    const url=proto+'//'+location.host+'/socket?'+query+(kind==='home'?'&owner='+encodeURIComponent(ownerFid||user.fid):'');
+    const connect=()=>{
+      if(!active)return;
+      setState(retryCount?'Reconnecting…':'Connecting to world…');
+      socket=new WebSocket(url);
+      ws.current=socket;
+      socket.onopen=()=>{retryCount=0;if(active)setState('Connected');};
+      socket.onerror=()=>{if(active)setState('Connection interrupted');};
+      socket.onclose=event=>{
+        if(!active)return;
+        playersRef.current=[];
+        setPlayers([]);
+        setSelfId('');
+        if(event.code===1008){setState('Room session closed — please return and re-enter');return;}
+        setState('Reconnecting…');
+        const delay=Math.min(500*2**Math.min(retryCount++,4),6000);
+        retryTimer=setTimeout(connect,delay);
+      };
     socket.onmessage=e=>{
       if(!active)return;
       let packet;try{packet=JSON.parse(e.data);}catch{return;}
@@ -244,22 +257,24 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
       if(packet.event==='match-end'){setEnd(d);setTimeout(()=>setEnd(null),5000);}
       if(packet.event==='error')setState(d.message);
     };
+    };
+    connect();
     const onDown=e=>{
       if(['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))return;
       if(['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();
       keys.current.add(e.key.toLowerCase());
-      if(e.code==='Space' && kind==='arena')socket.readyState===1&&socket.send(JSON.stringify({event:'shoot'}));
+      if(e.code==='Space' && kind==='arena' && ws.current?.readyState===1)ws.current.send(JSON.stringify({event:'shoot'}));
     };
     const onUp=e=>keys.current.delete(e.key.toLowerCase());
     window.addEventListener('keydown',onDown);window.addEventListener('keyup',onUp);
     const interval=setInterval(()=>{
-      if(socket.readyState!==1)return;
+      if(ws.current?.readyState!==1)return;
       const down=keys.current;
       const dx=Number(down.has('d')||down.has('arrowright'))-Number(down.has('a')||down.has('arrowleft'))+touch.current.dx;
       const dz=Number(down.has('s')||down.has('arrowdown'))-Number(down.has('w')||down.has('arrowup'))+touch.current.dz;
-      socket.send(JSON.stringify({event:'move',data:{dx:Math.max(-1,Math.min(1,dx)),dz:Math.max(-1,Math.min(1,dz))}}));
+      ws.current.send(JSON.stringify({event:'move',data:{dx:Math.max(-1,Math.min(1,dx)),dz:Math.max(-1,Math.min(1,dz))}}));
     },90);
-    return ()=>{active=false;clearInterval(interval);socket.close();window.removeEventListener('keydown',onDown);window.removeEventListener('keyup',onUp);keys.current.clear();};
+    return ()=>{active=false;clearTimeout(retryTimer);clearInterval(interval);socket?.close();window.removeEventListener('keydown',onDown);window.removeEventListener('keyup',onUp);keys.current.clear();};
   },[kind,ownerFid]);
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[messages]);
   const me=players.find(p=>p.id===selfId);
