@@ -107,7 +107,7 @@ function Sidebar({tab,onTab,user,stats,config,onLogout,openMobile,setOpenMobile}
       <button className="nav-link" onClick={()=>{onTab('home-space');setOpenMobile(false);}}><House size={19}/> <span>My apartment</span></button>
       <button className="nav-link" onClick={()=>{onTab('settings');setOpenMobile(false);}}><Settings size={19}/> <span>Settings</span></button>
       <div className="sidebar-spacer"/>
-      <div className="sidebar-promo"><div className="promo-icon">✳</div><strong>The world is better together.</strong><p>Invite a friend to hang out in the plaza.</p><button onClick={()=>navigator.clipboard?.writeText(location.origin).catch(()=>{})}>Copy invite link <ArrowUpRight size={14}/></button></div>
+      <div className="sidebar-promo"><div className="promo-icon">✳</div><strong>The world is better together.</strong><p>Invite a friend to hang out in the plaza.</p><button onClick={()=>{if(navigator.clipboard?.writeText)navigator.clipboard.writeText(location.origin).catch(()=>{});}}>Copy invite link <ArrowUpRight size={14}/></button></div>
       <div className="sidebar-bottom"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><div><b>{user.displayName}</b><span>{user.demo?'Demo account':'@'+user.username}</span></div><button onClick={onLogout} aria-label="Log out" title="Sign out"><LogOut size={17}/></button></div>
     </aside>
   </>;
