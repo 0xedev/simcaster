@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit';
 import '@farcaster/auth-kit/styles.css';
 import { Home, Compass, Gamepad2, Radio, UserRound, Settings, LogOut, Sparkles, ArrowUpRight, ArrowRight, Plus, MessageCircle, Heart, Repeat2, Share2, Users, CircleHelp, MapPin, House, Zap, Play, Crown, Shield, Check, Pencil, Coffee, Sofa, Flower2, Lamp, RefreshCw, ExternalLink, Lock, Wifi, Globe, ChevronRight, Star, Clock3, Search, Menu, X, Palette, WandSparkles } from 'lucide-react';
-import WorldView from './WorldView.jsx';
+const WorldView = React.lazy(() => import('./WorldView.jsx'));
 import './styles.css';
 
 async function api(url, options={}) {
@@ -213,7 +213,7 @@ function HomeSpace({user,notify,onArcade,onBack}) {
     try{setBusy(true);const r=await api('/me/home',{method:'PUT',body:JSON.stringify(next)});setHome(r.home);notify('Apartment updated!');}
     catch(e){notify(e.message);}finally{setBusy(false);}
   }
-  return <div className="home-space"><div className="home-editor"><div><span className="eyebrow">YOUR OWN LITTLE CORNER</span><h3>Decorate your space 🪴</h3><p>Add up to 15 pieces of furniture. Placement is automatic for now.</p></div><div className="furniture-row">{furniture.map((item,i)=><button disabled={busy||home.items.length>=15} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%5)-2,z:Math.floor(home.items.length/5)-2}]})}><span>{item.emoji}</span> {item.type}</button>)}<button disabled={!home.items.length||busy} onClick={()=>update({items:home.items.slice(0,-1)})}>↶ Undo</button></div></div><WorldView user={user} kind="home" homeItems={home.items} onBack={onBack} onArcade={onArcade}/></div>;
+  return <div className="home-space"><div className="home-editor"><div><span className="eyebrow">YOUR OWN LITTLE CORNER</span><h3>Decorate your space 🪴</h3><p>Add up to 15 pieces of furniture. Placement is automatic for now.</p></div><div className="furniture-row">{furniture.map((item,i)=><button disabled={busy||home.items.length>=15} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%5)-2,z:Math.floor(home.items.length/5)-2}]})}><span>{item.emoji}</span> {item.type}</button>)}<button disabled={!home.items.length||busy} onClick={()=>update({items:home.items.slice(0,-1)})}>↶ Undo</button></div></div><React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D home…</div>}><WorldView user={user} kind="home" homeItems={home.items} onBack={onBack} onArcade={onArcade}/></React.Suspense></div>;
 }
 function SettingsPage({user,config,onLogout}){
   return <div className="page-content"><div className="section-heading page-heading"><div><span className="eyebrow">YOUR ACCOUNT</span><h2>A space that's yours.</h2><p>Control your Simcaster session.</p></div></div><div className="settings-card"><div><Shield size={22}/><div><h3>Signed-in identity</h3><p>{user.demo?'Temporary demo user':'Farcaster FID: '+user.fid}</p></div></div><div><Globe size={22}/><div><h3>Feed connection</h3><p>{config.liveFeed?'Live Neynar API configured':'Neynar API key not configured'}</p></div></div><div><Lock size={22}/><div><h3>Session security</h3><p>Protected HTTP-only session cookie. Sign out to revoke it.</p></div></div><button className="secondary-btn" onClick={onLogout}><LogOut size={17}/> Sign out</button></div></div>;
@@ -239,8 +239,8 @@ function App(){
       {user.demo&&<div className="demo-strip"><span>◈</span> DEMO MODE — your identity is local and your social feed contains sample content. <span>Not a live Farcaster account.</span></div>}
       {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab}/>:
         tab==='feed'?<SocialFeed user={user} notify={notify}/>:
-        tab==='world'?<WorldView user={user} kind="plaza" onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/>:
-        tab==='arena'?<WorldView user={user} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')}/>:
+        tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D plaza…</div>}><WorldView user={user} kind="plaza" onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
+        tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:
         tab==='profile'?<Profile user={user} onUser={setUser} notify={notify}/>:
         tab==='home-space'?<HomeSpace user={user} notify={notify} onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/>:
