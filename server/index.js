@@ -135,6 +135,10 @@ app.post('/api/blocks',requireAuth,(req,res)=>{
   try {store.block(req.user.fid,fid);res.json({ok:true});}
   catch(e){fail(res,e.message);}
 });
+app.post('/api/reports',requireAuth,(req,res)=>{
+  try {store.report(req.user.fid,Number(req.body?.fid),req.body?.reason);res.status(201).json({ok:true});}
+  catch(e){fail(res,e.message);}
+});
 app.get('/api/feed',requireAuth,async(req,res)=>{
   const mode=req.query.mode==='following'?'following':'trending';
   if(!process.env.NEYNAR_API_KEY) {

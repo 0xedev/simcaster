@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {} });
+const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [] });
 const palettes = ['violet', 'citrus', 'coral', 'mint', 'sky'];
 const outfits = ['street', 'casual', 'sport', 'formal'];
 const hairStyles = ['short', 'curls', 'buzz', 'long'];
@@ -120,6 +120,15 @@ export class Store {
     const list = new Set(this.state.blocked[key] || []);
     list.add(Number(other));
     this.state.blocked[key] = [...list];
+    this.save();
+  }
+  report(reporter, subject, reason) {
+    const valid=['harassment','spam','cheating'];
+    if (!Number.isSafeInteger(subject) || subject<1 || subject===Number(reporter) || !valid.includes(reason)) throw new Error('Invalid report');
+    this.state.reports ||= [];
+    const now=Date.now();
+    if(this.state.reports.some(r=>r.reporter===Number(reporter)&&r.subject===subject&&now-r.createdAt<60000)) throw new Error('You recently reported this player');
+    this.state.reports.push({id:crypto.randomUUID(),reporter:Number(reporter),subject,reason,createdAt:now,status:'pending'});
     this.save();
   }
   isBlocked(a,b) {

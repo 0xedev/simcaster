@@ -127,6 +127,7 @@ function Scene({players,selfId,kind,homeItems}){
 }
 export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcade}){
   const [players,setPlayers]=useState([]);
+  const playersRef=useRef([]);
   const [selfId,setSelfId]=useState('');
   const [room,setRoom]=useState('');
   const [state,setState]=useState('Connecting to world…');
@@ -142,7 +143,9 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
   useEffect(()=>{
     let active=true;
     const proto=location.protocol==='https:'?'wss:':'ws:';
-    const socket=new WebSocket(proto+'//'+location.host+'/socket?room='+encodeURIComponent(kind));
+    const invite=new URLSearchParams(location.search).get('join');
+    const query='room='+encodeURIComponent(kind)+((kind!=='home' && invite?.startsWith(kind+':'))?'&instance='+encodeURIComponent(invite):'');
+    const socket=new WebSocket(proto+'//'+location.host+'/socket?'+query);
     ws.current=socket;
     socket.onopen=()=>{if(active)setState('Connected');};
     socket.onerror=()=>{if(active)setState('Connection error');};
@@ -152,9 +155,9 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
       let packet;try{packet=JSON.parse(e.data);}catch{return;}
       const d=packet.data;
       if(packet.event==='welcome'){setSelfId(d.id);setRoom(d.room);}
-      if(packet.event==='snapshot'){setPlayers(d.players);setSeconds(d.secondsLeft);}
+      if(packet.event==='snapshot'){playersRef.current=d.players;setPlayers(d.players);setSeconds(d.secondsLeft);}
       if(packet.event==='chat')setMessages(prev=>[...prev.slice(-36),{...d,type:'chat'}]);
-      if(packet.event==='emote')setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(players.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
+      if(packet.event==='emote')setMessages(prev=>[...prev.slice(-36),{type:'notice',text:(playersRef.current.find(p=>p.id===d.id)?.name||'Someone')+' '+(d.name==='dance'?'is dancing 💃':d.name==='heart'?'sent love 💜':'waved 👋')}]);
       if(packet.event==='notice')setMessages(prev=>[...prev.slice(-36),{...d,type:'notice'}]);
       if(packet.event==='match-end'){setEnd(d);setTimeout(()=>setEnd(null),5000);}
       if(packet.event==='error')setState(d.message);
@@ -179,6 +182,21 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[messages]);
   const me=players.find(p=>p.id===selfId);
   const send=(event,data={})=>{if(ws.current?.readyState===1)ws.current.send(JSON.stringify({event,data}));};
+  function inviteFriend() {
+    const url=new URL(location.origin);
+    url.searchParams.set('join',room);
+    if (!room || kind==='home')return;
+    navigator.clipboard?.writeText(url.toString()).then(()=>setMessages(prev=>[...prev,{type:'notice',text:'Invite link copied!'}])).catch(()=>setMessages(prev=>[...prev,{type:'notice',text:url.toString()}]));
+  }
+  async function action(fid,type) {
+    if(!fid || fid===user.fid)return;
+    if(!window.confirm(type==='blocks'?'Block this player from room chat?':'Report this player for harassment?'))return;
+    try {
+      const response=await fetch('/api/'+type,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({fid,...(type==='reports'?{reason:'harassment'}:{})})});
+      if(!response.ok)throw new Error((await response.json()).error||'Request failed');
+      setMessages(prev=>[...prev,{type:'notice',text:type==='blocks'?'Player blocked':'Report submitted'}]);
+    }catch(e){setMessages(prev=>[...prev,{type:'notice',text:e.message}]);}
+  }
   function sendChat(e){e.preventDefault();const value=text.trim();if(!value)return;send('chat',{text:value});setText('');}
   const direction=(dx,dz)=>({onPointerDown:e=>{e.currentTarget.setPointerCapture(e.pointerId);touch.current={dx,dz};},
     onPointerUp:()=>{touch.current={dx:0,dz:0};},onPointerCancel:()=>{touch.current={dx:0,dz:0};}});
@@ -191,6 +209,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
         <button className="stage-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
         <div className="location-pill"><span className="live-pulse"/> {kind==='arena'?'LASER TAG ARENA':kind==='home'?'MY APARTMENT':'THE COMMONS PLAZA'}</div>
         <div className="stage-counter"><Users size={15}/> {players.length} online</div>
+        {kind!=='home'&&<button className="stage-back stage-invite" onClick={inviteFriend}>Invite ↗</button>}
       </div>
       <div className="stage-info">
         <span className={state==='Connected'?'connection-good':'connection-bad'}>{state==='Connected'?<Wifi size={13}/>:<WifiOff size={13}/>} {state}</span>
@@ -215,7 +234,7 @@ export default function WorldView({user,kind='plaza',homeItems=[],onBack,onArcad
     <aside className={'world-panel '+(!showChat?'panel-collapsed':'')}>
       <div className="world-panel-head"><div><strong>Live room</strong><small>{players.length} people here</small></div><button onClick={()=>setShowChat(!showChat)} aria-label="Toggle chat"><MessageCircle size={19}/></button></div>
       {showChat&&<>
-        <div className="room-people">{players.map(p=><div key={p.id} className="room-person"><span className="tiny-avatar" style={{background:HEX[p.avatar?.color]||HEX.violet}}>{p.name[0]?.toUpperCase()}</span><span>{p.name}{p.id===selfId?' (you)':''}</span><span className="online-dot"/></div>)}</div>
+        <div className="room-people">{players.map(p=><div key={p.id} className="room-person"><span className="tiny-avatar" style={{background:HEX[p.avatar?.color]||HEX.violet}}>{p.name[0]?.toUpperCase()}</span><span>{p.name}{p.id===selfId?' (you)':''}</span><span className="online-dot"/>{p.id!==selfId&&<span className="person-actions"><button title="Block chat" onClick={()=>action(p.fid,'blocks')}>Block</button><button title="Report player" onClick={()=>action(p.fid,'reports')}>Report</button></span>}</div>)}</div>
         <div className="room-chat-title"><MessageCircle size={15}/> Room chat</div>
         <div className="room-messages" ref={scroll}>{messages.length===0&&<p className="room-hint">Say hello! Everyone in this room can see your messages.</p>}{messages.map((msg,i)=>msg.type==='notice'?<div className="room-notice" key={i}>{msg.text}</div>:<div className="room-msg" key={i}><b>{msg.name}</b><p>{msg.text}</p></div>)}</div>
         <form className="room-compose" onSubmit={sendChat}><input aria-label="Chat message" value={text} onChange={e=>setText(e.target.value)} placeholder="Say something…" maxLength={180}/><button aria-label="Send message" type="submit"><Send size={17}/></button></form>

@@ -221,7 +221,7 @@ function SettingsPage({user,config,onLogout}){
 function App(){
   const [config,setConfig]=useState({demoMode:false,liveFeed:false});
   const [user,setUser]=useState(null),[loading,setLoading]=useState(true);
-  const [tab,setTab]=useState('home'),[toast,setToast]=useState(''),[mobileNav,setMobileNav]=useState(false);
+  const [tab,setTab]=useState(()=>{const room=new URLSearchParams(location.search).get('join')||'';return room.startsWith('arena:')?'arena':room.startsWith('plaza:')?'world':'home';}),[toast,setToast]=useState(''),[mobileNav,setMobileNav]=useState(false);
   const [stats,setStats]=useState({players:0,rooms:0}),[leaderboard,setLeaderboard]=useState([]);
   const notify=message=>setToast(message);
   useEffect(()=>{
