@@ -210,6 +210,8 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
     }catch{return false;}
   });
   const [players,setPlayers]=useState([]);
+  const [liveHomeItems,setLiveHomeItems]=useState(homeItems);
+  useEffect(()=>setLiveHomeItems(homeItems),[homeItems]);
   const playersRef=useRef([]);
   const [selfId,setSelfId]=useState('');
   const [room,setRoom]=useState('');
@@ -254,6 +256,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
       const d=packet.data;
       if(packet.event==='welcome'){setSelfId(d.id);setRoom(d.room);}
       if(packet.event==='snapshot'){playersRef.current=d.players;setPlayers(d.players);setSeconds(d.secondsLeft);}
+      if(packet.event==='home-updated' && kind==='home')setLiveHomeItems(d.items || []);
       if(packet.event==='chat')setMessages(prev=>[...prev.slice(-36),{...d,type:'chat'}]);
       if(packet.event==='emote'){
         setEffects(prev=>({...prev,[d.id]:d.name}));
@@ -320,7 +323,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
   return <div className="world-layout">
     <div className="world-stage">
       {webglSupported?<Canvas shadows dpr={[1,1.6]} camera={{position:[18,18,22],fov:48,near:.1,far:150}} gl={{antialias:true,powerPreference:'high-performance'}}>
-        <Scene kind={kind} players={players} selfId={selfId} homeItems={homeItems} effects={effects} onSelect={setSelected}/>
+        <Scene kind={kind} players={players} selfId={selfId} homeItems={liveHomeItems} effects={effects} onSelect={setSelected}/>
       </Canvas>:<div className="graphics-unavailable" role="alert"><h2>3D graphics unavailable</h2><p>Your browser needs WebGL2 and hardware graphics enabled to enter the Simcaster world. Update your desktop browser or enable graphics acceleration.</p><button onClick={onBack}>Return to dashboard</button></div>}
       <div className="stage-top">
         <button className="stage-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>

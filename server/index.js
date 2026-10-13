@@ -148,8 +148,11 @@ app.get('/api/homes/:fid',requireAuth,(req,res)=>{
   res.json({owner,home:store.homeFor(owner)});
 });
 app.put('/api/me/home',requireAuth,(req,res)=>{
-  try {res.json({home:store.updateHome(req.user.fid,req.body)});}
-  catch(e){fail(res,e.message);}
+  try {
+    const home=store.updateHome(req.user.fid,req.body);
+    world.notifyHomeUpdated(req.user.fid,home);
+    res.json({home});
+  }catch(e){fail(res,e.message);}
 });
 app.post('/api/blocks',requireAuth,(req,res)=>{
   const fid=Number(req.body?.fid);

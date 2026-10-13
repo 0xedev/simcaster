@@ -161,6 +161,10 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
   },100);
   ticker.unref?.();
   return {
+    notifyHomeUpdated:(owner,home)=>{
+      const room=instances.get('home:'+owner);
+      if(room)broadcast(room,'home-updated',{items:home.items,owner});
+    },
     close:()=>{clearInterval(ticker);wss.close();},
     stats:()=>({players:[...instances.values()].reduce((n,r)=>n+r.players.size,0),
       rooms:instances.size,arcade:[...instances.values()].filter(r=>r.type==='arena').length})

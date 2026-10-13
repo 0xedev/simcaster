@@ -67,6 +67,17 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     const sharedHome=await fetch(origin+'/api/homes/'+user.user.fid,{headers:{cookie:cookie2}});
     assert.equal(sharedHome.status,200);
     assert.ok(Array.isArray((await sharedHome.json()).home.items));
+    const ownerHome=await openSocket('ws://localhost:'+port+'/socket?room=home&owner='+user.user.fid,cookie,origin);
+    const guestHome=await openSocket('ws://localhost:'+port+'/socket?room=home&owner='+user.user.fid,cookie2,origin);
+    try{
+      const broadcast=waitPacket(guestHome,'home-updated',d=>d.items?.[0]?.type==='chair');
+      const decoration=await fetch(origin+'/api/me/home',{method:'PUT',
+        headers:{origin,cookie,'content-type':'application/json'},
+        body:JSON.stringify({items:[{type:'chair',x:1,z:1}]})});
+      assert.equal(decoration.status,200);
+      const updated=await broadcast;
+      assert.equal(updated.items[0].x,1);
+    }finally{ownerHome.close();guestHome.close();}
     first=await openSocket('ws://localhost:'+port+'/socket?room=plaza',cookie,origin);
     second=await openSocket('ws://localhost:'+port+'/socket?room=plaza',cookie2,origin);
     const snapshot=await waitPacket(first,'snapshot',d=>d.players.length===2);
