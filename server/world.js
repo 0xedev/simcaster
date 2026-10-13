@@ -114,6 +114,12 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
   const ticker=setInterval(() => {
     const now=Date.now();
     for (const room of instances.values()) {
+      if(room.type==='home'){
+        const owner=Number(room.key.slice('home:'.length));
+        for(const guest of room.players.values()){
+          if(!store.canVisitHome(guest.fid,owner))guest.ws.close(1008,'Apartment access revoked');
+        }
+      }
       for (const p of room.players.values()) {
         const dt=clamp((now-p.lastMove)/1000,0,0.15);
         p.lastMove=now;

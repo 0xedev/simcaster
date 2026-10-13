@@ -55,6 +55,18 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     assert.equal(update.status,200);
     const login2=await post('/auth/demo',{name:'Bob'});
     const cookie2=login2.headers.get('set-cookie').split(';')[0];
+    const secondUser=(await login2.json()).user;
+    const deniedHome=await fetch(origin+'/api/homes/'+user.user.fid,{headers:{cookie:cookie2}});
+    assert.equal(deniedHome.status,403);
+    const request=await post('/friends/requests',{fid:secondUser.fid},cookie);
+    assert.equal(request.status,201);
+    const pendingHome=await fetch(origin+'/api/homes/'+user.user.fid,{headers:{cookie:cookie2}});
+    assert.equal(pendingHome.status,403);
+    const acceptance=await post('/friends/accept',{fid:user.user.fid},cookie2);
+    assert.equal(acceptance.status,200);
+    const sharedHome=await fetch(origin+'/api/homes/'+user.user.fid,{headers:{cookie:cookie2}});
+    assert.equal(sharedHome.status,200);
+    assert.ok(Array.isArray((await sharedHome.json()).home.items));
     first=await openSocket('ws://localhost:'+port+'/socket?room=plaza',cookie,origin);
     second=await openSocket('ws://localhost:'+port+'/socket?room=plaza',cookie2,origin);
     const snapshot=await waitPacket(first,'snapshot',d=>d.players.length===2);
