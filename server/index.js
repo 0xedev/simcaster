@@ -74,6 +74,21 @@ function sampleFeed() {
       text:'Less scrolling, more hanging out. That’s the internet I want to see. ✨',timestamp:new Date(Date.now()-5*3600000).toISOString(),reactions:{likes_count:67,recasts_count:15},replies:{count:18}}
   ];
 }
+const throttleState=new Map();
+function throttle(group,max,windowMs) {
+  return (req,res,next)=>{
+    const key=group+':'+req.socket.remoteAddress;
+    const now=Date.now(),bucket=throttleState.get(key);
+    const state=!bucket || now-bucket.started>=windowMs?{started:now,count:0}:bucket;
+    state.count++;throttleState.set(key,state);
+    if(state.count>max)return res.status(429).json({error:'Rate limit reached. Try again shortly.'});
+    next();
+  };
+}
+const limiterCleanup=setInterval(()=>{for(const [key,record] of throttleState)if(Date.now()-record.started>120000)throttleState.delete(key);},60000);
+limiterCleanup.unref();
+app.use('/api/auth',throttle('auth',45,60000));
+app.use('/api/feed',throttle('feed',60,60000));
 app.get('/api/health',(_,res)=>res.json({ok:true,service:'simcaster'}));
 app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN}));
 app.get('/api/auth/challenge',(_,res)=>{
@@ -156,6 +171,7 @@ app.get('/api/feed',requireAuth,async(req,res)=>{
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
 app.post('/api/casts',requireAuth,(_,res)=>fail(res,'In-app publishing needs a per-user approved signer. Open the Farcaster composer instead.',501));
 app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
+app.use('/api',(req,res)=>res.status(404).json({error:'Unknown API route'}));
 const dist=path.resolve(root,'dist');
 if(fs.existsSync(dist)) {
   app.use(express.static(dist,{maxAge:'1h'}));

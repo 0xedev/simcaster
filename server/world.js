@@ -50,7 +50,10 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin) {
     room.players.set(id,p);
     send(ws,'welcome',{id,room:room.key,type:room.type,serverTime:Date.now()});
     broadcast(room,'notice',{text:user.displayName.slice(0,32)+' joined the '+(type==='arena'?'arena':'world')});
+    let messageWindow=Date.now(),messageCount=0;
     ws.on('message',raw => {
+      if(Date.now()-messageWindow>=1000){messageWindow=Date.now();messageCount=0;}
+      if(++messageCount>35){ws.close(1008,'Too many messages');return;}
       let packet;
       try { packet=JSON.parse(raw.toString()); } catch { return; }
       if (!packet || typeof packet.event !== 'string') return;
