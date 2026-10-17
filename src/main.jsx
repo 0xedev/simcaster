@@ -188,7 +188,15 @@ function Dashboard({user,onTab,stats,config}) {
   </div>;
 }
 function SocialFeed({user,notify}) {
-  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
+  const [fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [writeStatus,setWriteStatus]=useState('not_connected'),[showWriteSetup,setShowWriteSetup]=useState(false);
+  const [signerInput,setSignerInput]=useState(''),[signerBusy,setSignerBusy]=useState(false);
+  const [composeText,setComposeText]=useState(''),[replyTarget,setReplyTarget]=useState(null),[busy,setBusy]=useState(false);
+  const [conversation,setConversation]=useState(null),[threadLoading,setThreadLoading]=useState(false);
+  const [reacting,setReacting]=useState({}),[localReactions,setLocalReactions]=useState({});
+  const mayWrite=writeStatus==='approved';
+  useEffect(()=>{api('/me/signer').then(result=>setWriteStatus(result.status)).catch(()=>setWriteStatus('not_connected'));},[user.fid]);
   async function load(nextMode=mode,append=false,nextCursor=null){
     setLoading(true);setError('');
     try{
@@ -198,27 +206,126 @@ function SocialFeed({user,notify}) {
     finally{setLoading(false);}
   }
   useEffect(()=>{load(mode);},[mode]);
-  function compose(){window.open('https://warpcast.com/~/compose','_blank','noopener,noreferrer');}
-  function openCast(c){if(!sample&&c.hash)window.open('https://warpcast.com/~/conversations/'+c.hash,'_blank','noopener,noreferrer');else notify('This is a sample cast, not a real Farcaster post.');}
+  async function connectSigner(e){
+    e.preventDefault();
+    try{
+      setSignerBusy(true);
+      const result=await api('/me/signer',{method:'POST',body:JSON.stringify({signer_uuid:signerInput.trim()})});
+      setWriteStatus(result.status);setShowWriteSetup(false);setSignerInput('');
+      notify('Farcaster write access verified. You can post, like, recast and reply here.');
+    }catch(e){notify(e.message);}finally{setSignerBusy(false);}
+  }
+  function writeActionRequired(){
+    setShowWriteSetup(true);
+    notify('Farcaster requires separate write authorization. Sign-in alone only enables reading.');
+  }
+  async function openThread(c) {
+    if(sample)return notify('Sample posts have no Farcaster conversation.');
+    setReplyTarget(c);setConversation(null);setThreadLoading(true);
+    try{const data=await api('/casts/'+encodeURIComponent(c.hash)+'/conversation');setConversation(data.conversation||{});}
+    catch(e){notify(e.message);}finally{setThreadLoading(false);}
+  }
+  async function react(c,type) {
+    if(!mayWrite)return writeActionRequired();
+    if(sample)return notify('Cannot react to a sample cast');
+    if(reacting[c.hash+type])return;
+    const local=localReactions[c.hash]||{};
+    const wasOn=local[type]!==undefined?local[type]:!!(type==='like'?c.viewer_context?.liked:c.viewer_context?.recasted);
+    setReacting(prev=>({...prev,[c.hash+type]:true}));
+    try{
+      await api('/reactions',{method:'POST',body:JSON.stringify({hash:c.hash,type,remove:wasOn})});
+      setLocalReactions(prev=>({...prev,[c.hash]:{...(prev[c.hash]||{}),[type]:!wasOn}}));
+      notify(!wasOn?(type==='like'?'Liked on Farcaster':'Recast on Farcaster'):'Reaction removed');
+    }catch(e){notify(e.message);}finally{setReacting(prev=>({...prev,[c.hash+type]:false}));}
+  }
+  async function publish(e){
+    e.preventDefault();
+    if(!mayWrite)return writeActionRequired();
+    if(busy||!composeText.trim())return;
+    try{
+      setBusy(true);
+      await api('/casts',{method:'POST',body:JSON.stringify({
+        text:composeText.trim(),...(replyTarget?{parent:replyTarget.hash}:{})
+      })});
+      notify(replyTarget?'Reply published to Farcaster':'Cast published to Farcaster');
+      setComposeText('');setReplyTarget(null);setConversation(null);
+      await load(mode);
+    }catch(e){notify(e.message);}finally{setBusy(false);}
+  }
+  function share(c){
+    const url='https://warpcast.com/~/conversations/'+encodeURIComponent(c.hash);
+    if(navigator.clipboard?.writeText){navigator.clipboard.writeText(url).then(()=>notify('Cast link copied')).catch(()=>notify(url));}
+    else notify(url);
+  }
   const visible=casts.filter(c=>(c.text+' '+c.author?.display_name+' '+c.author?.username).toLowerCase().includes(query.toLowerCase()));
-  return <div className="page-content feed-page"><div className="section-heading page-heading"><div><span className="eyebrow">GOOD THINGS ARE HAPPENING</span><h2>The social side of your world.</h2><p>Stay in the loop with the people who make your world.</p></div><button className="primary-btn" onClick={compose}><Pencil size={17}/> Create cast <ExternalLink size={15}/></button></div>
-    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable. Showing your Farcaster following feed instead.</span></div>}
-    {sample&&<div className="demo-banner"><Sparkles size={17}/><span><strong>Preview feed.</strong> These are fictional example posts. Add a Neynar API key to see live Farcaster casts.</span></div>}
+  const replies=Array.isArray(conversation?.direct_replies)?conversation.direct_replies:
+    Array.isArray(conversation?.cast?.direct_replies)?conversation.cast.direct_replies:[];
+  return <div className="page-content feed-page">
+    <div className="section-heading page-heading">
+      <div><span className="eyebrow">HAPPENING IN YOUR WORLD</span><h2>Your Farcaster feed, right here.</h2><p>Explore the conversation, share and connect without leaving Simcaster.</p></div>
+      <button className="primary-btn" onClick={()=>{setReplyTarget(null);document.getElementById('feed-compose')?.focus();}}>
+        <Pencil size={17}/> New cast
+      </button>
+    </div>
+    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable, so you're seeing your following feed.</span></div>}
+    {sample&&<div className="demo-banner"><Sparkles size={17}/><span>This is a preview feed, not real Farcaster posts.</span></div>}
+    {showWriteSetup&&<div className="signer-sheet" role="dialog" aria-label="Enable Farcaster interactions">
+      <div className="signer-sheet-head"><strong>Enable in-app reactions & posts</strong><button aria-label="Close write access dialog" onClick={()=>setShowWriteSetup(false)}>×</button></div>
+      <p>Farcaster sign-in verifies your identity, but publishing and reactions require a separate, user-approved Neynar signer. Connect an existing approved signer for this same Farcaster account. Your API key and signing credentials stay on the server.</p>
+      <form className="signer-form" onSubmit={connectSigner}>
+        <input placeholder="Approved Neynar signer UUID" aria-label="Neynar signer UUID" value={signerInput} onChange={e=>setSignerInput(e.target.value)} required/>
+        <button className="primary-btn" disabled={signerBusy||!signerInput.trim()} type="submit">{signerBusy?'Verifying…':'Verify signer'}</button>
+      </form>
+      <small>Signer approval is a separate Farcaster permission step. Do not paste seed phrases, private keys or passwords here.</small>
+    </div>}
     <div className="feed-grid"><div className="feed-main">
-      <div className="composer-card"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><button onClick={compose}>What's happening in your world?</button><button className="compose-round" onClick={compose} aria-label="Create a cast"><Plus size={20}/></button></div>
+      <form className="inline-feed-composer" onSubmit={publish}>
+        <div className="composer-byline"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/>
+          <div><b>{user.displayName}</b><small>{replyTarget?'Replying to @'+replyTarget.author?.username:'Share what’s happening in your world'}</small></div>
+          {replyTarget&&<button type="button" onClick={()=>setReplyTarget(null)} aria-label="Cancel reply">×</button>}
+        </div>
+        <textarea id="feed-compose" value={composeText} maxLength={320} onChange={e=>setComposeText(e.target.value)} placeholder={replyTarget?'Write your reply…':'What’s happening in your world?'} rows={2}/>
+        <div className="composer-actions"><span>{composeText.length}/320 · {mayWrite?'Farcaster writes connected':'Write access required'}</span>
+          <button className="primary-btn" type={mayWrite?'submit':'button'} disabled={busy||!composeText.trim()} onClick={!mayWrite?writeActionRequired:undefined}>{busy?'Publishing…':replyTarget?'Reply':'Post cast'}</button>
+        </div>
+      </form>
       <div className="feed-tabs"><button className={mode==='trending'?'selected':''} onClick={()=>setMode('trending')}>For you <Sparkles size={14}/></button><button className={mode==='following'?'selected':''} onClick={()=>setMode('following')}>Following</button><div className="feed-search"><Search size={16}/><input aria-label="Filter visible casts" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter posts"/></div></div>
       {error&&<div className="inline-error"><p>{error}</p><button onClick={()=>load()}>Retry <RefreshCw size={15}/></button></div>}
       {loading&&!casts.length&&<div className="loading-state"><div className="spinner"/> Loading the conversation…</div>}
-      {visible.map(c=><article className="cast-card" key={c.hash}><div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button onClick={()=>openCast(c)} aria-label="Open cast"><ArrowUpRight size={18}/></button></div>
-        <p className="cast-text">{c.text}</p>
-        {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {x.url.replace(/^https:\/\//,'').split('/')[0]}</a>)}
-        <div className="cast-actions"><button onClick={()=>openCast(c)}><MessageCircle size={17}/> {c.replies?.count||0}</button><button onClick={()=>openCast(c)}><Repeat2 size={17}/> {c.reactions?.recasts_count||0}</button><button onClick={()=>openCast(c)}><Heart size={17}/> {c.reactions?.likes_count||0}</button><button onClick={()=>openCast(c)}><Share2 size={17}/> Share</button></div>
-      </article>)}
+      {visible.map(c=>{const local=localReactions[c.hash]||{};
+        const liked=local.like!==undefined?local.like:!!c.viewer_context?.liked;
+        const recasted=local.recast!==undefined?local.recast:!!c.viewer_context?.recasted;
+        const likes=(c.reactions?.likes_count||0)+(local.like!==undefined?(Number(local.like)-Number(!!c.viewer_context?.liked)):0);
+        const recasts=(c.reactions?.recasts_count||0)+(local.recast!==undefined?(Number(local.recast)-Number(!!c.viewer_context?.recasted)):0);
+        return <article className="cast-card" key={c.hash}>
+          <div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button title="Read conversation here" onClick={()=>openThread(c)} aria-label="Open conversation"><MessageCircle size={18}/></button></div>
+          <p className="cast-text">{c.text}</p>
+          {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {x.url.replace(/^https:\/\//,'').split('/')[0]}</a>)}
+          <div className="cast-actions">
+            <button onClick={()=>openThread(c)}><MessageCircle size={17}/> {c.replies?.count||0} Reply</button>
+            <button disabled={!!reacting[c.hash+'recast']} className={recasted?'reacted':''} onClick={()=>react(c,'recast')}><Repeat2 size={17}/> {recasts} Recast</button>
+            <button disabled={!!reacting[c.hash+'like']} className={liked?'reacted liked':''} onClick={()=>react(c,'like')}><Heart size={17} fill={liked?'currentColor':'none'}/> {likes} Like</button>
+            <button onClick={()=>share(c)}><Share2 size={17}/> Share</button>
+          </div>
+          {replyTarget?.hash===c.hash&&<div className="thread-inline">
+            <div className="thread-head"><strong>Conversation</strong><button onClick={()=>{setReplyTarget(null);setConversation(null);}} aria-label="Close conversation">×</button></div>
+            {threadLoading?<span className="thread-status">Loading replies…</span>:
+              replies.length?replies.slice(0,15).map(reply=><div className="thread-reply" key={reply.hash}>
+                <b>@{reply.author?.username||'farcaster'}</b><p>{reply.text}</p>
+              </div>):<p className="thread-status">No replies yet. Start the conversation above.</p>}
+            <button className="secondary-btn" onClick={()=>document.getElementById('feed-compose')?.focus()}>Write a reply ↑</button>
+          </div>}
+        </article>;
+      })}
       {!loading&&!error&&visible.length===0&&<div className="empty-state">No posts found for this view.</div>}
       {cursor&&<button className="secondary-btn load-more" disabled={loading} onClick={()=>load(mode,true,cursor)}>{loading?'Loading…':'Load more casts'} <ArrowRight size={16}/></button>}
     </div>
-    <aside className="feed-aside"><div className="aside-card violet-aside"><span className="eyebrow">THE BEST PART?</span><h3>People, not just posts.</h3><p>Your Farcaster identity is also your identity inside Simcaster's living world.</p><span className="aside-decoration">✳</span></div><div className="aside-card"><h3>A little note 💜</h3><p>Reading casts works through Neynar when configured. Writing, reacting and replying currently open the Farcaster client until per-user signer permissions are implemented.</p></div></aside>
-    </div>
+    <aside className="feed-aside">
+      <div className="aside-card violet-aside"><span className="eyebrow">YOUR SPACE</span><h3>People, not just posts.</h3><p>One Farcaster identity across your feed and 3D world.</p><span className="aside-decoration">✳</span></div>
+      <div className="aside-card"><h3>Farcaster interactions</h3><p>{mayWrite?'Your account can react, reply and post directly.':'You can read threads and share links now. Likes, recasts and posting require an approved signer.'}</p>
+        {!mayWrite&&<button className="secondary-btn" onClick={()=>setShowWriteSetup(true)}>Connect write access</button>}
+      </div>
+    </aside></div>
   </div>;
 }
 function Arcade({onPlay,leaderboard}) {
