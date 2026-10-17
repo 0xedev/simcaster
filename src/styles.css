@@ -42,3 +42,57 @@
 .interact-actions a{background:#f4f0ff;color:#6744a8;border-radius:9px;padding:10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center}.interact-actions button:disabled{opacity:.36;cursor:not-allowed}
 
 .graphics-unavailable{height:100%;min-height:350px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;background:#201b35;color:#f5eeff;padding:35px}.graphics-unavailable h2{font-size:25px}.graphics-unavailable p{font-size:13px;max-width:420px;line-height:1.7;color:#c3b9db}.graphics-unavailable button{padding:12px 17px;background:#9174ed;color:#fff;border-radius:10px;font-weight:800}
+
+
+/* Immersive dashboard: lightweight interactive 3D village */
+.dashboard-hero{min-height:386px;background:linear-gradient(105deg,#e5d7ff 0%,#d9caf8 48%,#bca7ec 100%)}
+.dashboard-hero .hero-copy{max-width:57%;padding-right:0}
+.hero-world-preview{width:51%;right:0;bottom:0;top:0;height:100%;opacity:1;overflow:hidden}
+.sim-diorama{width:100%;height:100%;position:relative;min-height:230px;background:#d7c6f5;overflow:hidden}
+.sim-diorama canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.sim-diorama-town{background:#ded2fb}
+.hero-3d-label{position:absolute;top:17px;right:19px;font-size:9px;font-weight:900;letter-spacing:1px;color:#5d4387;background:#fffdfbe8;padding:8px 11px;border-radius:9px;display:flex;align-items:center;gap:7px;pointer-events:none;box-shadow:0 6px 18px #5d44771f}
+.hero-world-places{position:absolute;bottom:19px;left:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+.hero-world-places button{background:#fffef9f0;padding:9px 10px;border-radius:10px;box-shadow:0 7px 24px #33294a30;color:#48356f;font-weight:900;font-size:10px;border:1px solid #fff6}
+.hero-world-places button:hover,.hero-world-places button:focus-visible{background:#fff;outline:2px solid #a48bda}
+.diorama-fallback{height:100%;min-height:180px;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:10px;background:linear-gradient(135deg,#d9c8f8,#bba3e9);color:#4c386d;font-size:12px;font-weight:800;text-align:center;padding:20px}
+.diorama-fallback>span{font-size:44px}
+.diorama-fallback button{background:#7351ba;color:white;padding:9px 15px;border-radius:9px;font-weight:800}
+.character-preview-3d{min-height:480px;background:#d7c6f5}
+.character-preview-3d .sim-diorama{position:absolute;inset:0;min-height:0}
+.character-preview-3d .sim-diorama canvas{cursor:grab}
+.character-preview-3d .preview-label{z-index:3;background:#f3eafeab;padding:8px 12px;border-radius:8px}
+.character-preview-3d .character-name{bottom:22px;background:#fffc;padding:8px 20px;border-radius:12px}
+.customize-card .option-grid{grid-template-columns:repeat(auto-fit,minmax(66px,1fr))}
+.customize-card .option-grid button{min-height:40px}
+.customize-card .swatch:focus-visible,.customize-card button:focus-visible{outline:2px solid #5634ad;outline-offset:2px}
+
+/* Chat is only in the world and can be fully dismissed */
+.room-chat-toggle{position:absolute;right:20px;top:79px;z-index:9;display:flex;align-items:center;gap:8px;background:#f8f5ff;color:#604399;border:1px solid #fff9;box-shadow:0 8px 25px #24143b45;border-radius:10px;padding:11px 14px;font-size:11px;font-weight:900}
+.room-chat-toggle.is-open{background:#593c9b;color:#fff}
+.world-panel{z-index:11;overflow:hidden}
+.world-panel-head button{font-size:23px;line-height:1;color:#684aa5;font-weight:800}
+.world-layout:not(:has(.world-panel)) .world-stage{width:100%}
+@media(max-width:1150px){
+ .dashboard-hero .hero-copy{max-width:60%}
+ .hero-world-preview{width:48%;opacity:1}
+ .room-chat-toggle{right:14px;top:71px}
+}
+@media(max-width:850px){
+ .hero-world-preview{width:51%}
+ .room-chat-toggle{top:68px}
+}
+@media(max-width:610px){
+ .dashboard-hero{min-height:590px;display:flex;flex-direction:column}
+ .dashboard-hero .hero-copy{max-width:100%;width:100%;padding:24px 24px 0}
+ .dashboard-hero .hero-copy p{max-width:100%;font-size:12px}
+ .hero-world-preview{position:relative;right:auto;bottom:auto;top:auto;width:100%;height:300px;min-height:300px;opacity:1;margin-top:auto}
+ .hero-3d-label{top:10px;right:11px}
+ .hero-world-places{bottom:11px}
+ .hero-world-places button{font-size:9px;padding:8px}
+ .character-preview-3d{min-height:385px}
+ .room-chat-toggle{top:60px;right:9px;font-size:10px;padding:9px 11px}
+ .world-panel{top:101px;right:7px;width:min(300px,calc(100% - 14px));max-height:calc(100% - 132px);border-radius:12px;box-shadow:0 12px 40px #16102580}
+ .stage-info{top:109px;max-width:calc(100% - 100px)}
+ .world-panel .room-messages{min-height:100px}
+}
