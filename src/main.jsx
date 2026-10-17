@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit';
 import '@farcaster/auth-kit/styles.css';
@@ -10,7 +10,14 @@ async function api(url, options={}) {
   const res=await fetch('/api'+url,{credentials:'same-origin',
     ...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
   let data={};try{data=await res.json();}catch{}
-  if(!res.ok)throw new Error(data.error || 'Request failed ('+res.status+')');
+  if(!res.ok) {
+    // Expired/restarted server sessions must invalidate the UI immediately.
+    // Do not treat a failed login attempt or first unauthenticated page load as an expired session.
+    if(res.status===401 && !url.startsWith('/auth/') && url!=='/me') {
+      window.dispatchEvent(new Event('simcaster:session-expired'));
+    }
+    throw new Error(data.error || 'Request failed ('+res.status+')');
+  }
   return data;
 }
 const icons={home:Home,feed:Radio,world:Compass,arcade:Gamepad2,profile:UserRound,settings:Settings};
@@ -44,16 +51,41 @@ function Login({config,onSignedIn,onToast}){
   const [challenge,setChallenge]=useState(null);
   const [name,setName]=useState('');
   const [busy,setBusy]=useState(false);
-  useEffect(()=>{api('/auth/challenge').then(c=>setChallenge(c)).catch(e=>onToast(e.message));},[]);
-  async function success(result){
+  const attempt=useRef(false);
+  const processedNonce=useRef('');
+  const handlers=useRef({challenge,onSignedIn,onToast});
+  handlers.current={challenge,onSignedIn,onToast};
+  useEffect(()=>{
+    let mounted=true;
+    api('/auth/challenge').then(c=>{if(mounted)setChallenge(c);})
+      .catch(e=>{if(mounted)handlers.current.onToast(e.message);});
+    return()=>{mounted=false;};
+  },[]);
+  // Keep the callback reference stable. AuthKit calls onSuccess in an effect:
+  // changing its identity while verifying used to replay the same one-time nonce.
+  const success=useCallback(async result=>{
+    const nonce=handlers.current.challenge?.nonce;
+    if(attempt.current || (nonce && processedNonce.current===nonce))return;
+    attempt.current=true;
+    if(nonce)processedNonce.current=nonce;
+    setBusy(true);
     try{
-      setBusy(true);
-      const verified=await api('/auth/verify',{method:'POST',
-        body:JSON.stringify({nonce:challenge.nonce,message:result.message,signature:result.signature})});
-      onSignedIn(verified.user);
-    }catch(e){onToast(e.message);api('/auth/challenge').then(setChallenge).catch(()=>{});}
-    finally{setBusy(false);}
-  }
+      if(!nonce || typeof result?.message!=='string' || typeof result?.signature!=='string')
+        throw new Error('Incomplete Farcaster authentication. Please try again.');
+      await api('/auth/verify',{method:'POST',
+        body:JSON.stringify({nonce,message:result.message,signature:result.signature})});
+      const session=await api('/auth/session');
+      if(!session.user)throw new Error('Sign-in did not establish a session. Please try again.');
+      handlers.current.onSignedIn(session.user);
+    }catch(e){
+      handlers.current.onToast(e.message);
+      // Replace the consumed/expired nonce and remount the AuthKit button.
+      try{setChallenge(await api('/auth/challenge'));}catch(err){handlers.current.onToast(err.message);}
+    }finally{attempt.current=false;setBusy(false);}
+  },[]);
+  const authError=useCallback(error=>{
+    handlers.current.onToast(error?.message || 'Farcaster sign-in failed. Please try again.');
+  },[]);
   async function demo(e){
     e.preventDefault();try{setBusy(true);const result=await api('/auth/demo',{method:'POST',body:JSON.stringify({name})});onSignedIn(result.user);}
     catch(e){onToast(e.message);}finally{setBusy(false);}
@@ -72,7 +104,7 @@ function Login({config,onSignedIn,onToast}){
         <div className="welcome-benefits"><span><Check size={16}/> Real social identities</span><span><Check size={16}/> Shared 3D spaces</span><span><Check size={16}/> Games with friends</span></div>
         <div className="login-card">
           <strong>Your next adventure starts here.</strong><p>Connect your Farcaster account to join the world.</p>
-          {challenge?<SignInButton nonce={challenge.nonce} onSuccess={success} onError={e=>onToast(e.message)}/>:<button disabled className="primary-btn">Preparing secure sign in…</button>}
+          {challenge?<SignInButton key={challenge.nonce} nonce={challenge.nonce} onSuccess={success} onError={authError}/>:<button disabled className="primary-btn">Preparing secure sign in…</button>}
           {busy&&<small>Verifying your sign-in securely…</small>}
           {config.demoMode&&<form onSubmit={demo} className="demo-login">
             <span>OR EXPLORE A PRIVATE DEMO</span>
@@ -141,12 +173,12 @@ function Dashboard({user,onTab,stats,config}) {
   </div>;
 }
 function SocialFeed({user,notify}) {
-  const [mode,setMode]=useState('trending'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
   async function load(nextMode=mode,append=false,nextCursor=null){
     setLoading(true);setError('');
     try{
       const r=await api('/feed?mode='+nextMode+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
-      setCasts(prev=>append?[...prev,...r.casts]:r.casts);setSample(!!r.sample);setCursor(r.cursor||null);
+      setCasts(prev=>append?[...prev,...r.casts]:r.casts);setSample(!!r.sample);setFallback(!!r.feedFallback);setCursor(r.cursor||null);
     }catch(e){setError(e.message);if(!append)setCasts([]);}
     finally{setLoading(false);}
   }
@@ -155,6 +187,7 @@ function SocialFeed({user,notify}) {
   function openCast(c){if(!sample&&c.hash)window.open('https://warpcast.com/~/conversations/'+c.hash,'_blank','noopener,noreferrer');else notify('This is a sample cast, not a real Farcaster post.');}
   const visible=casts.filter(c=>(c.text+' '+c.author?.display_name+' '+c.author?.username).toLowerCase().includes(query.toLowerCase()));
   return <div className="page-content feed-page"><div className="section-heading page-heading"><div><span className="eyebrow">GOOD THINGS ARE HAPPENING</span><h2>The social side of your world.</h2><p>Stay in the loop with the people who make your world.</p></div><button className="primary-btn" onClick={compose}><Pencil size={17}/> Create cast <ExternalLink size={15}/></button></div>
+    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable. Showing your Farcaster following feed instead.</span></div>}
     {sample&&<div className="demo-banner"><Sparkles size={17}/><span><strong>Preview feed.</strong> These are fictional example posts. Add a Neynar API key to see live Farcaster casts.</span></div>}
     <div className="feed-grid"><div className="feed-main">
       <div className="composer-card"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><button onClick={compose}>What's happening in your world?</button><button className="compose-round" onClick={compose} aria-label="Create a cast"><Plus size={20}/></button></div>
@@ -268,13 +301,43 @@ function App(){
   function navigate(id){if(id==='home-space')setVisitingFid(null);setTab(id);}
   const [tab,setTab]=useState(()=>{const room=new URLSearchParams(location.search).get('join')||'';return room.startsWith('arena:')?'arena':room.startsWith('plaza:')?'world':'home';}),[toast,setToast]=useState(''),[mobileNav,setMobileNav]=useState(false);
   const [stats,setStats]=useState({players:0,rooms:0}),[leaderboard,setLeaderboard]=useState([]);
-  const notify=message=>setToast(message);
+  const notify=useCallback(message=>setToast(message),[]);
+  const sessionExpiredHandled=useRef(false);
   useEffect(()=>{
-    Promise.all([api('/config'),api('/me').catch(()=>null)]).then(([c,m])=>{setConfig(c);setUser(m?.user||null);}).catch(e=>notify(e.message)).finally(()=>setLoading(false));
+    const onExpired=()=>{
+      if(sessionExpiredHandled.current)return;
+      sessionExpiredHandled.current=true;
+      setUser(null);
+      setStats({players:0,rooms:0});
+      setLeaderboard([]);
+      setTab('home');
+      notify('Your session expired. Please sign in again.');
+    };
+    window.addEventListener('simcaster:session-expired',onExpired);
+    return()=>window.removeEventListener('simcaster:session-expired',onExpired);
+  },[notify]);
+  useEffect(()=>{
+    Promise.all([api('/config'),api('/auth/session')]).then(([c,m])=>{setConfig(c);setUser(m?.user||null);}).catch(e=>notify(e.message)).finally(()=>setLoading(false));
   },[]);
-  useEffect(()=>{if(!user)return;const refresh=()=>{api('/world/status').then(setStats).catch(()=>{});api('/leaderboard').then(r=>setLeaderboard(r.players)).catch(()=>{});};refresh();const timer=setInterval(refresh,15000);return()=>clearInterval(timer);},[user]);
-  async function logout(){try{await api('/auth/logout',{method:'POST',body:'{}'});}catch(e){notify(e.message);}setUser(null);setTab('home');}
-  const authConfig={domain:location.host,siweUri:location.origin+'/login',rpcUrl:'https://mainnet.optimism.io',relay:'https://relay.farcaster.xyz'};
+  useEffect(()=>{
+    if(!user)return;
+    sessionExpiredHandled.current=false;
+    let mounted=true;
+    const refresh=()=>{
+      if(document.hidden)return;
+      api('/world/status').then(r=>{if(mounted)setStats(r);}).catch(()=>{});
+      api('/leaderboard').then(r=>{if(mounted)setLeaderboard(r.players);}).catch(()=>{});
+    };
+    refresh();
+    const timer=setInterval(refresh,30000);
+    return()=>{mounted=false;clearInterval(timer);};
+  },[user?.fid]);
+  async function logout(){
+    try{await api('/auth/logout',{method:'POST',body:'{}'});}catch(e){notify(e.message);}
+    sessionExpiredHandled.current=false;
+    setUser(null);setTab('home');
+  }
+  const authConfig=useMemo(()=>({domain:location.host,siweUri:location.origin+'/login',rpcUrl:'https://mainnet.optimism.io',relay:'https://relay.farcaster.xyz'}),[]);
   if(loading)return <div className="splash"><div className="brand-mark"><div className="mark-eye"/><div className="mark-eye"/><div className="mark-mouth"/></div><h2>simcaster.</h2><div className="spinner"/></div>;
   return <AuthKitProvider config={authConfig}>
     {!user?<Login config={config} onSignedIn={u=>setUser(u)} onToast={notify}/>:

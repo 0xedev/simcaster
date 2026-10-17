@@ -233,10 +233,36 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
     const invite=new URLSearchParams(location.search).get('join');
     const query='room='+encodeURIComponent(kind)+((kind!=='home' && invite?.startsWith(kind+':'))?'&instance='+encodeURIComponent(invite):'');
     const url=proto+'//'+location.host+'/socket?'+query+(kind==='home'?'&owner='+encodeURIComponent(ownerFid||user.fid):'');
-    const connect=()=>{
+    const retryConnection=()=>{
+      if(!active)return;
+      if(retryCount>=4){
+        setState('Connection unavailable. Return to the menu and try again.');
+        return;
+      }
+      const delay=Math.min(1000*2**retryCount++,8000);
+      setState('Reconnecting…');
+      retryTimer=setTimeout(connect,delay);
+    };
+    const connect=async()=>{
       if(!active)return;
       setState(retryCount?'Reconnecting…':'Connecting to world…');
-      socket=new WebSocket(url);
+      // Reject stale server sessions before attempting a WebSocket upgrade.
+      // Otherwise 401 handshakes appear as repeated generic WebSocket errors.
+      try {
+        const response=await fetch('/api/auth/session',{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok)throw new Error('Session probe unavailable');
+        const session=await response.json();
+        if(!session.user || Number(session.user.fid)!==Number(user.fid)){
+          setState('Your session expired. Sign in again.');
+          window.dispatchEvent(new Event('simcaster:session-expired'));
+          return;
+        }
+      } catch {
+        retryConnection();
+        return;
+      }
+      if(!active)return;
+      try {socket=new WebSocket(url);}catch {retryConnection();return;}
       ws.current=socket;
       socket.onopen=()=>{retryCount=0;if(active)setState('Connected');};
       socket.onerror=()=>{if(active)setState('Connection interrupted');};
@@ -245,10 +271,12 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
         playersRef.current=[];
         setPlayers([]);
         setSelfId('');
-        if(event.code===1008){setState('Room session closed — please return and re-enter');return;}
-        setState('Reconnecting…');
-        const delay=Math.min(500*2**Math.min(retryCount++,4),6000);
-        retryTimer=setTimeout(connect,delay);
+        ws.current=null;
+        if(event.code===1008){
+          setState('Room session closed. Return and re-enter.');
+          return;
+        }
+        retryConnection();
       };
     socket.onmessage=e=>{
       if(!active)return;

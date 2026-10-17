@@ -41,6 +41,9 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
   });
   try {
     await waitFor(origin+'/api/health');
+    const anonymousSession=await fetch(origin+'/api/auth/session');
+    assert.equal(anonymousSession.status,200);
+    assert.equal((await anonymousSession.json()).user,null);
     const challenge=await(await fetch(origin+'/api/auth/challenge')).json();
     assert.ok(challenge.nonce.length>=16);
     const bad=await fetch(origin+'/api/auth/demo',{method:'POST',headers:{origin:'https://attacker.example','content-type':'application/json'},body:'{"name":"Eve"}'});
@@ -50,6 +53,9 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     const cookie=login.headers.get('set-cookie').split(';')[0];
     const user=await(await fetch(origin+'/api/me',{headers:{cookie}})).json();
     assert.equal(user.user.displayName,'Alice');
+    const validSession=await fetch(origin+'/api/auth/session',{headers:{cookie}});
+    assert.equal(validSession.status,200);
+    assert.equal((await validSession.json()).user.fid,user.user.fid);
     const update=await fetch(origin+'/api/me/avatar',{method:'PUT',headers:{origin,cookie,'content-type':'application/json'},
       body:JSON.stringify({color:'mint',outfit:'sport',hair:'curls'})});
     assert.equal(update.status,200);
@@ -93,6 +99,9 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     assert.equal(logout.status,200);
     const denied=await fetch(origin+'/api/me',{headers:{cookie}});
     assert.equal(denied.status,401);
+    const sessionAfterLogout=await fetch(origin+'/api/auth/session',{headers:{cookie}});
+    assert.equal(sessionAfterLogout.status,200);
+    assert.equal((await sessionAfterLogout.json()).user,null);
   } finally {
     first?.close();second?.close();child.kill();
     fs.rmSync(tmp,{recursive:true,force:true});
