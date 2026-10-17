@@ -5,7 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Store,validateAvatar,validateHome } from '../server/storage.js';
 test('avatar and furniture input validation',()=>{
-  assert.deepEqual(validateAvatar({color:'violet',outfit:'street',hair:'short'}),{color:'violet',outfit:'street',hair:'short'});
+  assert.deepEqual(validateAvatar({color:'violet',outfit:'street',hair:'short'}),{color:'violet',outfit:'street',hair:'short',skin:'warm',hairColor:'espresso',accessory:'none',build:'regular'});
+  assert.deepEqual(validateAvatar({color:'sky',outfit:'formal',hair:'curls',skin:'deep',hairColor:'auburn',accessory:'glasses',build:'broad'}),{color:'sky',outfit:'formal',hair:'curls',skin:'deep',hairColor:'auburn',accessory:'glasses',build:'broad'});
+  assert.throws(()=>validateAvatar({color:'sky',outfit:'sport',hair:'buzz',skin:'unknown'}));
+  assert.throws(()=>validateAvatar({color:'sky',outfit:'sport',hair:'buzz',accessory:'unsafe'}));
   assert.throws(()=>validateAvatar({color:'admin',outfit:'street',hair:'short'}));
   assert.throws(()=>validateHome({items:[{type:'sofa',x:50,z:2}]}));
 });
@@ -24,6 +27,21 @@ test('sessions are random, revocable, and account persisted',()=>{
     store.revokeSession(token);
     assert.equal(store.verifySession(token),null);
   }finally {fs.rmSync(temp,{recursive:true,force:true});}
+});
+
+test('approved signer binding belongs to an account and survives reload',()=>{
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'simcaster-signer-'));
+  try{
+    const file=path.join(temp,'store.json');
+    const store=new Store(file);
+    store.userFor(101);store.userFor(102);
+    const uuid='8d0494d9-e0cf-402b-ab0a-394ac7fe07a0';
+    store.setSigner(101,uuid);
+    assert.equal(store.signerFor(102),null);
+    assert.equal(new Store(file).signerFor(101),uuid);
+    store.setSigner(101,null);
+    assert.equal(store.signerFor(101),null);
+  }finally{fs.rmSync(temp,{recursive:true,force:true});}
 });
 
 test('friend requests require consent and persist across restarts',()=>{

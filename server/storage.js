@@ -2,17 +2,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [], friends: {} });
+const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [], friends: {}, signers: {} });
 const palettes = ['violet', 'citrus', 'coral', 'mint', 'sky'];
 const outfits = ['street', 'casual', 'sport', 'formal'];
 const hairStyles = ['short', 'curls', 'buzz', 'long'];
+const skinTones = ['warm', 'light', 'tan', 'deep', 'dark'];
+const hairColors = ['espresso', 'chestnut', 'auburn', 'blonde', 'silver'];
+const accessories = ['none', 'glasses', 'cap', 'headphones', 'earrings'];
+const builds = ['regular', 'slim', 'broad'];
 const furniture = ['sofa', 'table', 'plant', 'lamp', 'rug', 'chair'];
 
 export function validateAvatar(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid avatar');
-  const { color, outfit, hair } = input;
-  if (!palettes.includes(color) || !outfits.includes(outfit) || !hairStyles.includes(hair)) throw new Error('Unsupported avatar option');
-  return { color, outfit, hair };
+  const { color, outfit, hair, skin='warm', hairColor='espresso', accessory='none', build='regular' } = input;
+  if (!palettes.includes(color) || !outfits.includes(outfit) || !hairStyles.includes(hair) ||
+      !skinTones.includes(skin) || !hairColors.includes(hairColor) ||
+      !accessories.includes(accessory) || !builds.includes(build)) throw new Error('Unsupported avatar option');
+  return { color, outfit, hair, skin, hairColor, accessory, build };
 }
 
 export function validateHome(input) {
@@ -83,6 +89,12 @@ export class Store {
     this.state.homes[String(fid)] = home;
     this.save();
     return home;
+  }
+  signerFor(fid) { return this.state.signers[String(fid)] || null; }
+  setSigner(fid, signerUuid) {
+    if (signerUuid === null) delete this.state.signers[String(fid)];
+    else this.state.signers[String(fid)] = signerUuid;
+    this.save();
   }
   startSession(fid) {
     const token = crypto.randomBytes(32).toString('base64url');

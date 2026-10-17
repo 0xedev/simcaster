@@ -4,6 +4,7 @@ import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit';
 import '@farcaster/auth-kit/styles.css';
 import { Home, Compass, Gamepad2, Radio, UserRound, Settings, LogOut, Sparkles, ArrowUpRight, ArrowRight, Plus, MessageCircle, Heart, Repeat2, Share2, Users, CircleHelp, MapPin, House, Zap, Play, Crown, Shield, Check, Pencil, Coffee, Sofa, Flower2, Lamp, RefreshCw, ExternalLink, Lock, Wifi, Globe, ChevronRight, Star, Clock3, Search, Menu, X, Palette, WandSparkles } from 'lucide-react';
 const WorldView = React.lazy(() => import('./WorldView.jsx'));
+const SimDiorama = React.lazy(() => import('./SimDiorama.jsx'));
 import './styles.css';
 
 async function api(url, options={}) {
@@ -31,6 +32,10 @@ const nav=[
 const PALETTES=[{id:'violet',hex:'#9871f1',label:'Lavender'},{id:'citrus',hex:'#eec75d',label:'Sunny'},{id:'coral',hex:'#ff8e97',label:'Coral'},{id:'mint',hex:'#6cdbc4',label:'Mint'},{id:'sky',hex:'#78bcf4',label:'Sky'}];
 const CLOTHES=['street','casual','sport','formal'];
 const HAIR=['short','curls','buzz','long'];
+const SKIN=[{id:'warm',hex:'#d9a989',label:'Warm'},{id:'light',hex:'#f0c5a3',label:'Light'},{id:'tan',hex:'#c8885d',label:'Tan'},{id:'deep',hex:'#875434',label:'Deep'},{id:'dark',hex:'#523322',label:'Dark'}];
+const HAIR_COLORS=[{id:'espresso',hex:'#302438',label:'Espresso'},{id:'chestnut',hex:'#70432e',label:'Chestnut'},{id:'auburn',hex:'#af5537',label:'Auburn'},{id:'blonde',hex:'#dfbb72',label:'Blonde'},{id:'silver',hex:'#a9acb8',label:'Silver'}];
+const ACCESSORIES=['none','glasses','cap','headphones','earrings'];
+const BUILDS=['regular','slim','broad'];
 function formatTime(value) {
   const n=Date.now()-new Date(value).getTime();
   if(!Number.isFinite(n))return '';
@@ -156,7 +161,17 @@ function Dashboard({user,onTab,stats,config}) {
   return <div className="page-content dashboard-page">
     <div className="page-kicker"><span className="live-pulse"/> YOUR LITTLE UNIVERSE IS READY</div>
     <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR NEW SOCIAL WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Let's make</span> some memories.</h1><p>Somewhere between a social network and a whole new world. Your friends, your stories, your adventure.</p><button className="primary-btn" onClick={()=>onTab('world')}>Enter the world <ArrowUpRight size={18}/></button></div>
-      <div className="hero-illustration"><div className="hero-orb"/><div className="hero-city"><span className="city-house city-h1">⌂</span><span className="city-house city-h2">⌂</span><span className="city-house city-h3">⌂</span><span className="city-face">🙂</span><span className="city-star">✦</span></div><span className="hero-sticker sticker-1">✨ good vibes only</span><span className="hero-sticker sticker-2">👋 hey, friend!</span></div>
+      <div className="hero-illustration hero-world-preview">
+        <React.Suspense fallback={<div className="diorama-fallback">Loading your 3D neighbourhood…</div>}>
+          <SimDiorama avatar={user.avatar} onExplore={()=>onTab('world')} onArcade={()=>onTab('arcade')} onHome={()=>onTab('home-space')}/>
+        </React.Suspense>
+        <div className="hero-3d-label"><span className="live-pulse"/> LIVE 3D SOCIAL WORLD</div>
+        <div className="hero-world-places">
+          <button onClick={()=>onTab('world')}>🏙️ Plaza ↗</button>
+          <button onClick={()=>onTab('arcade')}>🎮 Arcade ↗</button>
+          <button onClick={()=>onTab('home-space')}>🏠 My place ↗</button>
+        </div>
+      </div>
     </div>
     <div className="stats-row">
       <div className="stat-card"><div className="stat-icon lavender"><Users size={21}/></div><div><strong>{stats.players??0}</strong><span>Exploring right now</span></div></div>
@@ -173,7 +188,15 @@ function Dashboard({user,onTab,stats,config}) {
   </div>;
 }
 function SocialFeed({user,notify}) {
-  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
+  const [fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [writeStatus,setWriteStatus]=useState('not_connected'),[showWriteSetup,setShowWriteSetup]=useState(false);
+  const [signerInput,setSignerInput]=useState(''),[signerBusy,setSignerBusy]=useState(false);
+  const [composeText,setComposeText]=useState(''),[replyTarget,setReplyTarget]=useState(null),[busy,setBusy]=useState(false);
+  const [conversation,setConversation]=useState(null),[threadLoading,setThreadLoading]=useState(false);
+  const [reacting,setReacting]=useState({}),[localReactions,setLocalReactions]=useState({});
+  const mayWrite=writeStatus==='approved';
+  useEffect(()=>{api('/me/signer').then(result=>setWriteStatus(result.status)).catch(()=>setWriteStatus('not_connected'));},[user.fid]);
   async function load(nextMode=mode,append=false,nextCursor=null){
     setLoading(true);setError('');
     try{
@@ -183,27 +206,126 @@ function SocialFeed({user,notify}) {
     finally{setLoading(false);}
   }
   useEffect(()=>{load(mode);},[mode]);
-  function compose(){window.open('https://warpcast.com/~/compose','_blank','noopener,noreferrer');}
-  function openCast(c){if(!sample&&c.hash)window.open('https://warpcast.com/~/conversations/'+c.hash,'_blank','noopener,noreferrer');else notify('This is a sample cast, not a real Farcaster post.');}
+  async function connectSigner(e){
+    e.preventDefault();
+    try{
+      setSignerBusy(true);
+      const result=await api('/me/signer',{method:'POST',body:JSON.stringify({signer_uuid:signerInput.trim()})});
+      setWriteStatus(result.status);setShowWriteSetup(false);setSignerInput('');
+      notify('Farcaster write access verified. You can post, like, recast and reply here.');
+    }catch(e){notify(e.message);}finally{setSignerBusy(false);}
+  }
+  function writeActionRequired(){
+    setShowWriteSetup(true);
+    notify('Farcaster requires separate write authorization. Sign-in alone only enables reading.');
+  }
+  async function openThread(c) {
+    if(sample)return notify('Sample posts have no Farcaster conversation.');
+    setReplyTarget(c);setConversation(null);setThreadLoading(true);
+    try{const data=await api('/casts/'+encodeURIComponent(c.hash)+'/conversation');setConversation(data.conversation||{});}
+    catch(e){notify(e.message);}finally{setThreadLoading(false);}
+  }
+  async function react(c,type) {
+    if(!mayWrite)return writeActionRequired();
+    if(sample)return notify('Cannot react to a sample cast');
+    if(reacting[c.hash+type])return;
+    const local=localReactions[c.hash]||{};
+    const wasOn=local[type]!==undefined?local[type]:!!(type==='like'?c.viewer_context?.liked:c.viewer_context?.recasted);
+    setReacting(prev=>({...prev,[c.hash+type]:true}));
+    try{
+      await api('/reactions',{method:'POST',body:JSON.stringify({hash:c.hash,type,remove:wasOn})});
+      setLocalReactions(prev=>({...prev,[c.hash]:{...(prev[c.hash]||{}),[type]:!wasOn}}));
+      notify(!wasOn?(type==='like'?'Liked on Farcaster':'Recast on Farcaster'):'Reaction removed');
+    }catch(e){notify(e.message);}finally{setReacting(prev=>({...prev,[c.hash+type]:false}));}
+  }
+  async function publish(e){
+    e.preventDefault();
+    if(!mayWrite)return writeActionRequired();
+    if(busy||!composeText.trim())return;
+    try{
+      setBusy(true);
+      await api('/casts',{method:'POST',body:JSON.stringify({
+        text:composeText.trim(),...(replyTarget?{parent:replyTarget.hash}:{})
+      })});
+      notify(replyTarget?'Reply published to Farcaster':'Cast published to Farcaster');
+      setComposeText('');setReplyTarget(null);setConversation(null);
+      await load(mode);
+    }catch(e){notify(e.message);}finally{setBusy(false);}
+  }
+  function share(c){
+    const url='https://warpcast.com/~/conversations/'+encodeURIComponent(c.hash);
+    if(navigator.clipboard?.writeText){navigator.clipboard.writeText(url).then(()=>notify('Cast link copied')).catch(()=>notify(url));}
+    else notify(url);
+  }
   const visible=casts.filter(c=>(c.text+' '+c.author?.display_name+' '+c.author?.username).toLowerCase().includes(query.toLowerCase()));
-  return <div className="page-content feed-page"><div className="section-heading page-heading"><div><span className="eyebrow">GOOD THINGS ARE HAPPENING</span><h2>The social side of your world.</h2><p>Stay in the loop with the people who make your world.</p></div><button className="primary-btn" onClick={compose}><Pencil size={17}/> Create cast <ExternalLink size={15}/></button></div>
-    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable. Showing your Farcaster following feed instead.</span></div>}
-    {sample&&<div className="demo-banner"><Sparkles size={17}/><span><strong>Preview feed.</strong> These are fictional example posts. Add a Neynar API key to see live Farcaster casts.</span></div>}
+  const replies=Array.isArray(conversation?.direct_replies)?conversation.direct_replies:
+    Array.isArray(conversation?.cast?.direct_replies)?conversation.cast.direct_replies:[];
+  return <div className="page-content feed-page">
+    <div className="section-heading page-heading">
+      <div><span className="eyebrow">HAPPENING IN YOUR WORLD</span><h2>Your Farcaster feed, right here.</h2><p>Explore the conversation, share and connect without leaving Simcaster.</p></div>
+      <button className="primary-btn" onClick={()=>{setReplyTarget(null);document.getElementById('feed-compose')?.focus();}}>
+        <Pencil size={17}/> New cast
+      </button>
+    </div>
+    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable, so you're seeing your following feed.</span></div>}
+    {sample&&<div className="demo-banner"><Sparkles size={17}/><span>This is a preview feed, not real Farcaster posts.</span></div>}
+    {showWriteSetup&&<div className="signer-sheet" role="dialog" aria-label="Enable Farcaster interactions">
+      <div className="signer-sheet-head"><strong>Enable in-app reactions & posts</strong><button aria-label="Close write access dialog" onClick={()=>setShowWriteSetup(false)}>×</button></div>
+      <p>Farcaster sign-in verifies your identity, but publishing and reactions require a separate, user-approved Neynar signer. Connect an existing approved signer for this same Farcaster account. Your API key and signing credentials stay on the server.</p>
+      <form className="signer-form" onSubmit={connectSigner}>
+        <input placeholder="Approved Neynar signer UUID" aria-label="Neynar signer UUID" value={signerInput} onChange={e=>setSignerInput(e.target.value)} required/>
+        <button className="primary-btn" disabled={signerBusy||!signerInput.trim()} type="submit">{signerBusy?'Verifying…':'Verify signer'}</button>
+      </form>
+      <small>Signer approval is a separate Farcaster permission step. Do not paste seed phrases, private keys or passwords here.</small>
+    </div>}
     <div className="feed-grid"><div className="feed-main">
-      <div className="composer-card"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><button onClick={compose}>What's happening in your world?</button><button className="compose-round" onClick={compose} aria-label="Create a cast"><Plus size={20}/></button></div>
+      <form className="inline-feed-composer" onSubmit={publish}>
+        <div className="composer-byline"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/>
+          <div><b>{user.displayName}</b><small>{replyTarget?'Replying to @'+replyTarget.author?.username:'Share what’s happening in your world'}</small></div>
+          {replyTarget&&<button type="button" onClick={()=>setReplyTarget(null)} aria-label="Cancel reply">×</button>}
+        </div>
+        <textarea id="feed-compose" value={composeText} maxLength={320} onChange={e=>setComposeText(e.target.value)} placeholder={replyTarget?'Write your reply…':'What’s happening in your world?'} rows={2}/>
+        <div className="composer-actions"><span>{composeText.length}/320 · {mayWrite?'Farcaster writes connected':'Write access required'}</span>
+          <button className="primary-btn" type={mayWrite?'submit':'button'} disabled={busy||!composeText.trim()} onClick={!mayWrite?writeActionRequired:undefined}>{busy?'Publishing…':replyTarget?'Reply':'Post cast'}</button>
+        </div>
+      </form>
       <div className="feed-tabs"><button className={mode==='trending'?'selected':''} onClick={()=>setMode('trending')}>For you <Sparkles size={14}/></button><button className={mode==='following'?'selected':''} onClick={()=>setMode('following')}>Following</button><div className="feed-search"><Search size={16}/><input aria-label="Filter visible casts" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter posts"/></div></div>
       {error&&<div className="inline-error"><p>{error}</p><button onClick={()=>load()}>Retry <RefreshCw size={15}/></button></div>}
       {loading&&!casts.length&&<div className="loading-state"><div className="spinner"/> Loading the conversation…</div>}
-      {visible.map(c=><article className="cast-card" key={c.hash}><div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button onClick={()=>openCast(c)} aria-label="Open cast"><ArrowUpRight size={18}/></button></div>
-        <p className="cast-text">{c.text}</p>
-        {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {x.url.replace(/^https:\/\//,'').split('/')[0]}</a>)}
-        <div className="cast-actions"><button onClick={()=>openCast(c)}><MessageCircle size={17}/> {c.replies?.count||0}</button><button onClick={()=>openCast(c)}><Repeat2 size={17}/> {c.reactions?.recasts_count||0}</button><button onClick={()=>openCast(c)}><Heart size={17}/> {c.reactions?.likes_count||0}</button><button onClick={()=>openCast(c)}><Share2 size={17}/> Share</button></div>
-      </article>)}
+      {visible.map(c=>{const local=localReactions[c.hash]||{};
+        const liked=local.like!==undefined?local.like:!!c.viewer_context?.liked;
+        const recasted=local.recast!==undefined?local.recast:!!c.viewer_context?.recasted;
+        const likes=(c.reactions?.likes_count||0)+(local.like!==undefined?(Number(local.like)-Number(!!c.viewer_context?.liked)):0);
+        const recasts=(c.reactions?.recasts_count||0)+(local.recast!==undefined?(Number(local.recast)-Number(!!c.viewer_context?.recasted)):0);
+        return <article className="cast-card" key={c.hash}>
+          <div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button title="Read conversation here" onClick={()=>openThread(c)} aria-label="Open conversation"><MessageCircle size={18}/></button></div>
+          <p className="cast-text">{c.text}</p>
+          {c.embeds?.filter(x=>typeof x.url==='string'&&/^https:\/\//.test(x.url)).slice(0,2).map(x=><a className="cast-embed" key={x.url} href={x.url} target="_blank" rel="noreferrer"><ExternalLink size={14}/> {x.url.replace(/^https:\/\//,'').split('/')[0]}</a>)}
+          <div className="cast-actions">
+            <button onClick={()=>openThread(c)}><MessageCircle size={17}/> {c.replies?.count||0} Reply</button>
+            <button disabled={!!reacting[c.hash+'recast']} className={recasted?'reacted':''} onClick={()=>react(c,'recast')}><Repeat2 size={17}/> {recasts} Recast</button>
+            <button disabled={!!reacting[c.hash+'like']} className={liked?'reacted liked':''} onClick={()=>react(c,'like')}><Heart size={17} fill={liked?'currentColor':'none'}/> {likes} Like</button>
+            <button onClick={()=>share(c)}><Share2 size={17}/> Share</button>
+          </div>
+          {replyTarget?.hash===c.hash&&<div className="thread-inline">
+            <div className="thread-head"><strong>Conversation</strong><button onClick={()=>{setReplyTarget(null);setConversation(null);}} aria-label="Close conversation">×</button></div>
+            {threadLoading?<span className="thread-status">Loading replies…</span>:
+              replies.length?replies.slice(0,15).map(reply=><div className="thread-reply" key={reply.hash}>
+                <b>@{reply.author?.username||'farcaster'}</b><p>{reply.text}</p>
+              </div>):<p className="thread-status">No replies yet. Start the conversation above.</p>}
+            <button className="secondary-btn" onClick={()=>document.getElementById('feed-compose')?.focus()}>Write a reply ↑</button>
+          </div>}
+        </article>;
+      })}
       {!loading&&!error&&visible.length===0&&<div className="empty-state">No posts found for this view.</div>}
       {cursor&&<button className="secondary-btn load-more" disabled={loading} onClick={()=>load(mode,true,cursor)}>{loading?'Loading…':'Load more casts'} <ArrowRight size={16}/></button>}
     </div>
-    <aside className="feed-aside"><div className="aside-card violet-aside"><span className="eyebrow">THE BEST PART?</span><h3>People, not just posts.</h3><p>Your Farcaster identity is also your identity inside Simcaster's living world.</p><span className="aside-decoration">✳</span></div><div className="aside-card"><h3>A little note 💜</h3><p>Reading casts works through Neynar when configured. Writing, reacting and replying currently open the Farcaster client until per-user signer permissions are implemented.</p></div></aside>
-    </div>
+    <aside className="feed-aside">
+      <div className="aside-card violet-aside"><span className="eyebrow">YOUR SPACE</span><h3>People, not just posts.</h3><p>One Farcaster identity across your feed and 3D world.</p><span className="aside-decoration">✳</span></div>
+      <div className="aside-card"><h3>Farcaster interactions</h3><p>{mayWrite?'Your account can react, reply and post directly.':'You can read threads and share links now. Likes, recasts and posting require an approved signer.'}</p>
+        {!mayWrite&&<button className="secondary-btn" onClick={()=>setShowWriteSetup(true)}>Connect write access</button>}
+      </div>
+    </aside></div>
   </div>;
 }
 function Arcade({onPlay,leaderboard}) {
@@ -225,14 +347,18 @@ function Profile({user,onUser,notify}) {
   }
   return <div className="page-content"><div className="section-heading page-heading"><div><span className="eyebrow">EXPRESS YOURSELF</span><h2>Your character. Your rules.</h2><p>One identity, a million ways to show up.</p></div></div>
     <div className="profile-grid">
-      <div className="character-preview"><span className="preview-label"><Sparkles size={14}/> THE REAL YOU, IN 3D(ISH)</span><div className="character-halo"/>
-        <div className="character-body"><div className="character-hair" style={{background:avatar.hair==='buzz'?'#4b3550':'#382e48'}}/><div className="character-face"><span>• &nbsp; •</span><small>⌣</small></div><div className="character-shirt" style={{background:PALETTES.find(p=>p.id===avatar.color)?.hex}}/><div className="character-pants"/><div className="character-shoes"/></div>
+      <div className="character-preview character-preview-3d"><span className="preview-label"><Sparkles size={14}/> LIVE 3D CHARACTER</span>
+        <React.Suspense fallback={<div className="diorama-fallback">Loading 3D avatar…</div>}><SimDiorama avatar={avatar} variant="avatar"/></React.Suspense>
         <div className="character-name"><b>{user.displayName}</b><span>{user.demo?'demo player':'@'+user.username}</span></div>
       </div>
       <div className="customize-card"><div className="customize-title"><Palette size={21}/><div><h3>Make it yours</h3><p>Choose your look for the plaza and arcade.</p></div></div>
         <div className="customize-group"><label>YOUR COLOUR</label><div className="palette-row">{PALETTES.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+(avatar.color===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,color:c.id})}>{avatar.color===c.id&&<Check size={18}/>}</button>)}</div></div>
         <div className="customize-group"><label>OUTFIT STYLE</label><div className="option-grid">{CLOTHES.map(c=><button key={c} className={avatar.outfit===c?'selected':''} onClick={()=>setAvatar({...avatar,outfit:c})}>{c}</button>)}</div></div>
         <div className="customize-group"><label>HAIR STYLE</label><div className="option-grid">{HAIR.map(h=><button key={h} className={avatar.hair===h?'selected':''} onClick={()=>setAvatar({...avatar,hair:h})}>{h}</button>)}</div></div>
+        <div className="customize-group"><label>SKIN TONE</label><div className="palette-row">{SKIN.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+((avatar.skin||'warm')===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,skin:c.id})}>{(avatar.skin||'warm')===c.id&&<Check size={18}/>}</button>)}</div></div>
+        <div className="customize-group"><label>HAIR COLOR</label><div className="palette-row">{HAIR_COLORS.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+((avatar.hairColor||'espresso')===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,hairColor:c.id})}>{(avatar.hairColor||'espresso')===c.id&&<Check size={18}/>}</button>)}</div></div>
+        <div className="customize-group"><label>BUILD</label><div className="option-grid">{BUILDS.map(v=><button key={v} className={(avatar.build||'regular')===v?'selected':''} onClick={()=>setAvatar({...avatar,build:v})}>{v}</button>)}</div></div>
+        <div className="customize-group"><label>ACCESSORIES</label><div className="option-grid">{ACCESSORIES.map(v=><button key={v} className={(avatar.accessory||'none')===v?'selected':''} onClick={()=>setAvatar({...avatar,accessory:v})}>{v}</button>)}</div></div>
         <button disabled={saving} className="primary-btn full" onClick={save}><Check size={17}/>{saving?'Saving…':'Save character'}</button>
         <div className="privacy-note"><Shield size={16}/> Your Farcaster profile remains your identity. This changes only your Simcaster avatar.</div>
       </div>

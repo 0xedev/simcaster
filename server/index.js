@@ -64,6 +64,25 @@ async function neynar(path,params) {
   if (!response.ok) throw new Error('Farcaster provider returned '+response.status);
   return response.json();
 }
+async function neynarMutation(method,route,body) {
+  if (!process.env.NEYNAR_API_KEY) throw new Error('NEYNAR_API_KEY not configured');
+  const response=await fetch('https://api.neynar.com/v2/farcaster/'+route,{
+    method,headers:{'x-api-key':process.env.NEYNAR_API_KEY,accept:'application/json','content-type':'application/json'},
+    body:JSON.stringify(body),signal:AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw new Error('Farcaster provider returned '+response.status);
+  const result=await response.text();
+  return result?JSON.parse(result):{ok:true};
+}
+const castHashOk=hash=>typeof hash==='string' && /^0x[0-9a-fA-F]{40}$/.test(hash);
+const signerUuidOk=value=>typeof value==='string' && /^[a-f0-9-]{36}$/i.test(value);
+async function approvedSignerFor(fid) {
+  const uuid=store.signerFor(fid);
+  if (!uuid) return null;
+  const signer=await neynar('signer',{signer_uuid:uuid});
+  if (signer.status!=='approved' || Number(signer.fid)!==Number(fid)) return null;
+  return uuid;
+}
 function sampleFeed() {
   return [
     {hash:'demo-1',author:{fid:1,display_name:'Maya Chen',username:'maya.world',pfp_url:''},
@@ -206,13 +225,78 @@ app.get('/api/feed',requireAuth,async(req,res)=>{
   }catch(e){fail(res,e.message,502);}
 });
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
-app.post('/api/casts',requireAuth,(_,res)=>fail(res,'In-app publishing needs a per-user approved signer. Open the Farcaster composer instead.',501));
+// Neynar read access does not authorize user writes. Never trust signer_uuid from a post body;
+// associate an approved signer only after Neynar confirms it belongs to the signed-in FID.
+app.get('/api/me/signer',requireAuth,async(req,res)=>{
+  const uuid=store.signerFor(req.user.fid);
+  if(!uuid)return res.json({status:'not_connected'});
+  try {
+    const signer=await neynar('signer',{signer_uuid:uuid});
+    if(Number(signer.fid)!==Number(req.user.fid))return fail(res,'Signer does not belong to this Farcaster account',403);
+    res.json({status:signer.status==='approved'?'approved':(signer.status||'unavailable')});
+  }catch{return fail(res,'Unable to verify your write permission',502);}
+});
+app.post('/api/me/signer',requireAuth,throttle('signer',8,60000),async(req,res)=>{
+  const uuid=req.body?.signer_uuid;
+  if(!signerUuidOk(uuid))return fail(res,'Enter a valid Neynar signer UUID');
+  try{
+    const signer=await neynar('signer',{signer_uuid:uuid});
+    if(signer.status!=='approved'||Number(signer.fid)!==Number(req.user.fid))
+      return fail(res,'That signer is not approved for your Farcaster account',403);
+    store.setSigner(req.user.fid,uuid);
+    res.json({status:'approved'});
+  }catch(e){fail(res,e.message,502);}
+});
+app.delete('/api/me/signer',requireAuth,(req,res)=>{
+  store.setSigner(req.user.fid,null);res.json({status:'not_connected'});
+});
+app.get('/api/casts/:hash/conversation',requireAuth,throttle('conversation',30,60000),async(req,res)=>{
+  if(!castHashOk(req.params.hash))return fail(res,'Invalid cast hash');
+  try{
+    const data=await neynar('cast/conversation',{
+      identifier:req.params.hash,type:'hash',reply_depth:2,viewer_fid:req.user.fid
+    });
+    res.json({conversation:data.conversation||null});
+  }catch(e){fail(res,e.message,502);}
+});
+app.post('/api/reactions',requireAuth,throttle('write',20,60000),async(req,res)=>{
+  const {hash,type,remove=false}=req.body||{};
+  if(!castHashOk(hash)||!['like','recast'].includes(type)||typeof remove!=='boolean')
+    return fail(res,'Invalid reaction');
+  try{
+    const uuid=await approvedSignerFor(req.user.fid);
+    if(!uuid)return fail(res,'Connect an approved Farcaster write signer first',403);
+    await neynarMutation(remove?'DELETE':'POST','reaction',{
+      signer_uuid:uuid,reaction_type:type,target:hash
+    });
+    res.json({ok:true,type,hash,removed:remove});
+  }catch(e){fail(res,e.message,502);}
+});
+app.post('/api/casts',requireAuth,throttle('write',20,60000),async(req,res)=>{
+  const content=typeof req.body?.text==='string'?req.body.text.trim():'';
+  const parent=req.body?.parent;
+  if(!content||content.length>320 || (parent!==undefined && !castHashOk(parent)))
+    return fail(res,'Cast text must be 1–320 characters; reply parent must be a valid hash');
+  try{
+    const uuid=await approvedSignerFor(req.user.fid);
+    if(!uuid)return fail(res,'Connect an approved Farcaster write signer first',403);
+    const idem=typeof req.body?.idem==='string'&&/^[a-zA-Z0-9]{16}$/.test(req.body.idem)
+      ?req.body.idem:crypto.randomBytes(8).toString('hex');
+    const data=await neynarMutation('POST','cast',{
+      signer_uuid:uuid,text:content,idem,...(parent?{parent}:{})
+    });
+    res.status(201).json({cast:data.cast||null,ok:true});
+  }catch(e){fail(res,e.message,502);}
+});
 app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 app.use('/api',(req,res)=>res.status(404).json({error:'Unknown API route'}));
 const dist=path.resolve(root,'dist');
 if(fs.existsSync(dist)) {
-  app.use(express.static(dist,{maxAge:'1h'}));
-  app.get('*',(req,res)=>res.sendFile(path.join(dist,'index.html')));
+  app.use(express.static(dist,{maxAge:'1h',setHeaders(res,filename){
+    // The SPA HTML must not be cached across deployments; assets are versioned.
+    if(path.basename(filename)==='index.html')res.setHeader('Cache-Control','no-store');
+  }}));
+  app.get('*',(req,res)=>{res.set('Cache-Control','no-store');res.sendFile(path.join(dist,'index.html'));});
 }
 const server=app.listen(PORT,()=>console.log('Simcaster API listening on '+PORT+'; demo='+DEMO));
 // These non-blocking startup probes diagnose Neynar credentials and feed access.
