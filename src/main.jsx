@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit';
 import '@farcaster/auth-kit/styles.css';
@@ -171,12 +171,12 @@ function Dashboard({user,onTab,stats,config}) {
   </div>;
 }
 function SocialFeed({user,notify}) {
-  const [mode,setMode]=useState('trending'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
+  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
   async function load(nextMode=mode,append=false,nextCursor=null){
     setLoading(true);setError('');
     try{
       const r=await api('/feed?mode='+nextMode+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
-      setCasts(prev=>append?[...prev,...r.casts]:r.casts);setSample(!!r.sample);setCursor(r.cursor||null);
+      setCasts(prev=>append?[...prev,...r.casts]:r.casts);setSample(!!r.sample);setFallback(!!r.feedFallback);setCursor(r.cursor||null);
     }catch(e){setError(e.message);if(!append)setCasts([]);}
     finally{setLoading(false);}
   }
@@ -185,6 +185,7 @@ function SocialFeed({user,notify}) {
   function openCast(c){if(!sample&&c.hash)window.open('https://warpcast.com/~/conversations/'+c.hash,'_blank','noopener,noreferrer');else notify('This is a sample cast, not a real Farcaster post.');}
   const visible=casts.filter(c=>(c.text+' '+c.author?.display_name+' '+c.author?.username).toLowerCase().includes(query.toLowerCase()));
   return <div className="page-content feed-page"><div className="section-heading page-heading"><div><span className="eyebrow">GOOD THINGS ARE HAPPENING</span><h2>The social side of your world.</h2><p>Stay in the loop with the people who make your world.</p></div><button className="primary-btn" onClick={compose}><Pencil size={17}/> Create cast <ExternalLink size={15}/></button></div>
+    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Discovery is temporarily unavailable. Showing your Farcaster following feed instead.</span></div>}
     {sample&&<div className="demo-banner"><Sparkles size={17}/><span><strong>Preview feed.</strong> These are fictional example posts. Add a Neynar API key to see live Farcaster casts.</span></div>}
     <div className="feed-grid"><div className="feed-main">
       <div className="composer-card"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><button onClick={compose}>What's happening in your world?</button><button className="compose-round" onClick={compose} aria-label="Create a cast"><Plus size={20}/></button></div>
@@ -334,7 +335,7 @@ function App(){
     sessionExpiredHandled.current=false;
     setUser(null);setTab('home');
   }
-  const authConfig={domain:location.host,siweUri:location.origin+'/login',rpcUrl:'https://mainnet.optimism.io',relay:'https://relay.farcaster.xyz'};
+  const authConfig=useMemo(()=>({domain:location.host,siweUri:location.origin+'/login',rpcUrl:'https://mainnet.optimism.io',relay:'https://relay.farcaster.xyz'}),[]);
   if(loading)return <div className="splash"><div className="brand-mark"><div className="mark-eye"/><div className="mark-eye"/><div className="mark-mouth"/></div><h2>simcaster.</h2><div className="spinner"/></div>;
   return <AuthKitProvider config={authConfig}>
     {!user?<Login config={config} onSignedIn={u=>setUser(u)} onToast={notify}/>:
