@@ -52,6 +52,7 @@ function Login({config,onSignedIn,onToast}){
   const [name,setName]=useState('');
   const [busy,setBusy]=useState(false);
   const attempt=useRef(false);
+  const processedNonce=useRef('');
   const handlers=useRef({challenge,onSignedIn,onToast});
   handlers.current={challenge,onSignedIn,onToast};
   useEffect(()=>{
@@ -63,11 +64,12 @@ function Login({config,onSignedIn,onToast}){
   // Keep the callback reference stable. AuthKit calls onSuccess in an effect:
   // changing its identity while verifying used to replay the same one-time nonce.
   const success=useCallback(async result=>{
-    if(attempt.current)return;
+    const nonce=handlers.current.challenge?.nonce;
+    if(attempt.current || (nonce && processedNonce.current===nonce))return;
     attempt.current=true;
+    if(nonce)processedNonce.current=nonce;
     setBusy(true);
     try{
-      const nonce=handlers.current.challenge?.nonce;
       if(!nonce || typeof result?.message!=='string' || typeof result?.signature!=='string')
         throw new Error('Incomplete Farcaster authentication. Please try again.');
       await api('/auth/verify',{method:'POST',
