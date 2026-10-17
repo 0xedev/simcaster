@@ -10,7 +10,11 @@ async function api(url, options={}) {
   const res=await fetch('/api'+url,{credentials:'same-origin',
     ...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}});
   let data={};try{data=await res.json();}catch{}
-  if(!res.ok)throw new Error(data.error || 'Request failed ('+res.status+')');
+  if(!res.ok) {
+    if(res.status===404 && (url==='/config'||url==='/auth/challenge'))
+      throw new Error('The Simcaster backend is not deployed at this address. Run the complete Node server, not only the static Vite build.');
+    throw new Error(data.error || 'Request failed ('+res.status+')');
+  }
   return data;
 }
 const icons={home:Home,feed:Radio,world:Compass,arcade:Gamepad2,profile:UserRound,settings:Settings};
@@ -263,6 +267,7 @@ function SettingsPage({user,config,onLogout}){
 }
 function App(){
   const [config,setConfig]=useState({demoMode:false,liveFeed:false});
+  const [bootstrapError,setBootstrapError]=useState('');
   const [user,setUser]=useState(null),[loading,setLoading]=useState(true);
   const [visitingFid,setVisitingFid]=useState(null);
   function navigate(id){if(id==='home-space')setVisitingFid(null);setTab(id);}
@@ -270,12 +275,19 @@ function App(){
   const [stats,setStats]=useState({players:0,rooms:0}),[leaderboard,setLeaderboard]=useState([]);
   const notify=message=>setToast(message);
   useEffect(()=>{
-    Promise.all([api('/config'),api('/me').catch(()=>null)]).then(([c,m])=>{setConfig(c);setUser(m?.user||null);}).catch(e=>notify(e.message)).finally(()=>setLoading(false));
+    Promise.all([api('/config'),api('/me').catch(()=>null)]).then(([c,m])=>{setConfig(c);setUser(m?.user||null);}).catch(e=>setBootstrapError(e.message)).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{if(!user)return;const refresh=()=>{api('/world/status').then(setStats).catch(()=>{});api('/leaderboard').then(r=>setLeaderboard(r.players)).catch(()=>{});};refresh();const timer=setInterval(refresh,15000);return()=>clearInterval(timer);},[user]);
   async function logout(){try{await api('/auth/logout',{method:'POST',body:'{}'});}catch(e){notify(e.message);}setUser(null);setTab('home');}
   const authConfig={domain:location.host,siweUri:location.origin+'/login',rpcUrl:'https://mainnet.optimism.io',relay:'https://relay.farcaster.xyz'};
   if(loading)return <div className="splash"><div className="brand-mark"><div className="mark-eye"/><div className="mark-eye"/><div className="mark-mouth"/></div><h2>simcaster.</h2><div className="spinner"/></div>;
+  if(bootstrapError)return <div className="splash" role="alert">
+    <div className="brand-mark"><div className="mark-eye"/><div className="mark-eye"/><div className="mark-mouth"/></div>
+    <h2>Simcaster server unavailable</h2>
+    <p>The website loaded, but its API and multiplayer backend are not connected.</p>
+    <p className="inline-error">{bootstrapError}</p>
+    <button className="primary-btn" onClick={()=>location.reload()}>Retry connection <RefreshCw size={17}/></button>
+  </div>;
   return <AuthKitProvider config={authConfig}>
     {!user?<Login config={config} onSignedIn={u=>setUser(u)} onToast={notify}/>:
     <div className="app-shell">
