@@ -4,6 +4,7 @@ import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit';
 import '@farcaster/auth-kit/styles.css';
 import { Home, Compass, Gamepad2, Radio, UserRound, Settings, LogOut, Sparkles, ArrowUpRight, ArrowRight, Plus, MessageCircle, Heart, Repeat2, Share2, Users, CircleHelp, MapPin, House, Zap, Play, Crown, Shield, Check, Pencil, Coffee, Sofa, Flower2, Lamp, RefreshCw, ExternalLink, Lock, Wifi, Globe, ChevronRight, Star, Clock3, Search, Menu, X, Palette, WandSparkles } from 'lucide-react';
 const WorldView = React.lazy(() => import('./WorldView.jsx'));
+const SimDiorama = React.lazy(() => import('./SimDiorama.jsx'));
 import './styles.css';
 
 async function api(url, options={}) {
@@ -31,6 +32,10 @@ const nav=[
 const PALETTES=[{id:'violet',hex:'#9871f1',label:'Lavender'},{id:'citrus',hex:'#eec75d',label:'Sunny'},{id:'coral',hex:'#ff8e97',label:'Coral'},{id:'mint',hex:'#6cdbc4',label:'Mint'},{id:'sky',hex:'#78bcf4',label:'Sky'}];
 const CLOTHES=['street','casual','sport','formal'];
 const HAIR=['short','curls','buzz','long'];
+const SKIN=[{id:'warm',hex:'#d9a989',label:'Warm'},{id:'light',hex:'#f0c5a3',label:'Light'},{id:'tan',hex:'#c8885d',label:'Tan'},{id:'deep',hex:'#875434',label:'Deep'},{id:'dark',hex:'#523322',label:'Dark'}];
+const HAIR_COLORS=[{id:'espresso',hex:'#302438',label:'Espresso'},{id:'chestnut',hex:'#70432e',label:'Chestnut'},{id:'auburn',hex:'#af5537',label:'Auburn'},{id:'blonde',hex:'#dfbb72',label:'Blonde'},{id:'silver',hex:'#a9acb8',label:'Silver'}];
+const ACCESSORIES=['none','glasses','cap','headphones','earrings'];
+const BUILDS=['regular','slim','broad'];
 function formatTime(value) {
   const n=Date.now()-new Date(value).getTime();
   if(!Number.isFinite(n))return '';
@@ -156,7 +161,17 @@ function Dashboard({user,onTab,stats,config}) {
   return <div className="page-content dashboard-page">
     <div className="page-kicker"><span className="live-pulse"/> YOUR LITTLE UNIVERSE IS READY</div>
     <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR NEW SOCIAL WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Let's make</span> some memories.</h1><p>Somewhere between a social network and a whole new world. Your friends, your stories, your adventure.</p><button className="primary-btn" onClick={()=>onTab('world')}>Enter the world <ArrowUpRight size={18}/></button></div>
-      <div className="hero-illustration"><div className="hero-orb"/><div className="hero-city"><span className="city-house city-h1">⌂</span><span className="city-house city-h2">⌂</span><span className="city-house city-h3">⌂</span><span className="city-face">🙂</span><span className="city-star">✦</span></div><span className="hero-sticker sticker-1">✨ good vibes only</span><span className="hero-sticker sticker-2">👋 hey, friend!</span></div>
+      <div className="hero-illustration hero-world-preview">
+        <React.Suspense fallback={<div className="diorama-fallback">Loading your 3D neighbourhood…</div>}>
+          <SimDiorama avatar={user.avatar} onExplore={()=>onTab('world')} onArcade={()=>onTab('arcade')} onHome={()=>onTab('home-space')}/>
+        </React.Suspense>
+        <div className="hero-3d-label"><span className="live-pulse"/> LIVE 3D SOCIAL WORLD</div>
+        <div className="hero-world-places">
+          <button onClick={()=>onTab('world')}>🏙️ Plaza ↗</button>
+          <button onClick={()=>onTab('arcade')}>🎮 Arcade ↗</button>
+          <button onClick={()=>onTab('home-space')}>🏠 My place ↗</button>
+        </div>
+      </div>
     </div>
     <div className="stats-row">
       <div className="stat-card"><div className="stat-icon lavender"><Users size={21}/></div><div><strong>{stats.players??0}</strong><span>Exploring right now</span></div></div>
@@ -225,14 +240,18 @@ function Profile({user,onUser,notify}) {
   }
   return <div className="page-content"><div className="section-heading page-heading"><div><span className="eyebrow">EXPRESS YOURSELF</span><h2>Your character. Your rules.</h2><p>One identity, a million ways to show up.</p></div></div>
     <div className="profile-grid">
-      <div className="character-preview"><span className="preview-label"><Sparkles size={14}/> THE REAL YOU, IN 3D(ISH)</span><div className="character-halo"/>
-        <div className="character-body"><div className="character-hair" style={{background:avatar.hair==='buzz'?'#4b3550':'#382e48'}}/><div className="character-face"><span>• &nbsp; •</span><small>⌣</small></div><div className="character-shirt" style={{background:PALETTES.find(p=>p.id===avatar.color)?.hex}}/><div className="character-pants"/><div className="character-shoes"/></div>
+      <div className="character-preview character-preview-3d"><span className="preview-label"><Sparkles size={14}/> LIVE 3D CHARACTER</span>
+        <React.Suspense fallback={<div className="diorama-fallback">Loading 3D avatar…</div>}><SimDiorama avatar={avatar} variant="avatar"/></React.Suspense>
         <div className="character-name"><b>{user.displayName}</b><span>{user.demo?'demo player':'@'+user.username}</span></div>
       </div>
       <div className="customize-card"><div className="customize-title"><Palette size={21}/><div><h3>Make it yours</h3><p>Choose your look for the plaza and arcade.</p></div></div>
         <div className="customize-group"><label>YOUR COLOUR</label><div className="palette-row">{PALETTES.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+(avatar.color===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,color:c.id})}>{avatar.color===c.id&&<Check size={18}/>}</button>)}</div></div>
         <div className="customize-group"><label>OUTFIT STYLE</label><div className="option-grid">{CLOTHES.map(c=><button key={c} className={avatar.outfit===c?'selected':''} onClick={()=>setAvatar({...avatar,outfit:c})}>{c}</button>)}</div></div>
         <div className="customize-group"><label>HAIR STYLE</label><div className="option-grid">{HAIR.map(h=><button key={h} className={avatar.hair===h?'selected':''} onClick={()=>setAvatar({...avatar,hair:h})}>{h}</button>)}</div></div>
+        <div className="customize-group"><label>SKIN TONE</label><div className="palette-row">{SKIN.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+((avatar.skin||'warm')===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,skin:c.id})}>{(avatar.skin||'warm')===c.id&&<Check size={18}/>}</button>)}</div></div>
+        <div className="customize-group"><label>HAIR COLOR</label><div className="palette-row">{HAIR_COLORS.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+((avatar.hairColor||'espresso')===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,hairColor:c.id})}>{(avatar.hairColor||'espresso')===c.id&&<Check size={18}/>}</button>)}</div></div>
+        <div className="customize-group"><label>BUILD</label><div className="option-grid">{BUILDS.map(v=><button key={v} className={(avatar.build||'regular')===v?'selected':''} onClick={()=>setAvatar({...avatar,build:v})}>{v}</button>)}</div></div>
+        <div className="customize-group"><label>ACCESSORIES</label><div className="option-grid">{ACCESSORIES.map(v=><button key={v} className={(avatar.accessory||'none')===v?'selected':''} onClick={()=>setAvatar({...avatar,accessory:v})}>{v}</button>)}</div></div>
         <button disabled={saving} className="primary-btn full" onClick={save}><Check size={17}/>{saving?'Saving…':'Save character'}</button>
         <div className="privacy-note"><Shield size={16}/> Your Farcaster profile remains your identity. This changes only your Simcaster avatar.</div>
       </div>
