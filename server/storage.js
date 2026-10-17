@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [], friends: {} });
+const defaultState = () => ({ accounts: {}, sessions: {}, scores: {}, blocked: {}, homes: {}, reports: [], friends: {}, signers: {} });
 const palettes = ['violet', 'citrus', 'coral', 'mint', 'sky'];
 const outfits = ['street', 'casual', 'sport', 'formal'];
 const hairStyles = ['short', 'curls', 'buzz', 'long'];
@@ -89,6 +89,12 @@ export class Store {
     this.state.homes[String(fid)] = home;
     this.save();
     return home;
+  }
+  signerFor(fid) { return this.state.signers[String(fid)] || null; }
+  setSigner(fid, signerUuid) {
+    if (signerUuid === null) delete this.state.signers[String(fid)];
+    else this.state.signers[String(fid)] = signerUuid;
+    this.save();
   }
   startSession(fid) {
     const token = crypto.randomBytes(32).toString('base64url');
