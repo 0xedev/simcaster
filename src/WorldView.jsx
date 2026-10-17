@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AvatarFigure from './AvatarFigure.jsx';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ArrowLeft, Send, Users, Move, Crosshair, Heart, Smile, Wifi, WifiOff, Trophy, Flag, MessageCircle, Volume2, ExternalLink } from 'lucide-react';
@@ -100,37 +101,11 @@ function AvatarName({name,you}){
   </sprite>;
 }
 function Avatar({p,you,emote,onSelect}){
-  const body=useRef();
-  const rightArm=useRef();
-  const leftArm=useRef();
-  useFrame(({clock})=>{
-    const time=clock.elapsedTime;
-    if(body.current){
-      body.current.position.y=Math.sin(time*2.4+p.x)*.035+(emote==='dance'?Math.abs(Math.sin(time*6))*.17:0);
-      body.current.rotation.z=emote==='dance'?Math.sin(time*7)*.2:0;
-    }
-    if(rightArm.current)rightArm.current.rotation.z=emote==='wave'?-.9+Math.sin(time*13)*.35:emote==='dance'?Math.sin(time*7)*.65:-.12;
-    if(leftArm.current)leftArm.current.rotation.z=emote==='dance'?-Math.sin(time*7)*.65:.12;
-  });
-  const color=HEX[p.avatar?.color]||HEX.violet;
-  return <group position={[p.x,0,p.z]} rotation={[0,p.heading||0,0]}
-    onClick={e=>{e.stopPropagation();if(!you)onSelect(p);}}>
+  return <group position={[p.x,0,p.z]} rotation={[0,p.heading||0,0]} onClick={e=>{e.stopPropagation();if(!you)onSelect(p);}}>
     <AvatarName name={p.name||'Player'} you={you}/>
-    <group ref={body}>
-      <mesh castShadow position={[0,.68,0]}><capsuleGeometry args={[.36,.62,4,8]}/><meshStandardMaterial color={color} roughness={.75}/></mesh>
-      <mesh castShadow position={[0,1.58,0]}><sphereGeometry args={[.31,14,10]}/><meshStandardMaterial color="#d9a989"/></mesh>
-      <mesh castShadow position={[0,1.84,0]}><sphereGeometry args={[.33,12,8]}/><meshStandardMaterial color={p.avatar?.hair==='buzz'?'#302b40':'#453752'}/></mesh>
-      <mesh position={[-.11,1.61,.28]}><sphereGeometry args={[.035,7,6]}/><meshBasicMaterial color="#33293b"/></mesh>
-      <mesh position={[.11,1.61,.28]}><sphereGeometry args={[.035,7,6]}/><meshBasicMaterial color="#33293b"/></mesh>
-      {[-1,1].map(s=><group key={s}>
-        <mesh ref={s===1?rightArm:leftArm} castShadow position={[s*.48,.83,0]}>
-          <capsuleGeometry args={[.13,.5,4,6]}/><meshStandardMaterial color={color}/>
-        </mesh>
-        <mesh castShadow position={[s*.18,.1,0]}><capsuleGeometry args={[.16,.22,4,6]}/><meshStandardMaterial color="#39364e"/></mesh>
-      </group>)}
-      {you&&<mesh position={[0,2.10,0]}><octahedronGeometry args={[.20]}/><meshStandardMaterial color="#f9d875" emissive="#f9d875" emissiveIntensity={.7}/></mesh>}
-      {emote==='heart'&&<mesh position={[0,2.25,0]}><sphereGeometry args={[.20,10,10]}/><meshStandardMaterial color="#ff77ac" emissive="#ff77ac" emissiveIntensity={.65}/></mesh>}
-    </group>
+    <AvatarFigure avatar={p.avatar} emote={emote}/>
+    {you&&<mesh position={[0,2.30,0]}><octahedronGeometry args={[.20]}/><meshStandardMaterial color="#f9d875" emissive="#f9d875" emissiveIntensity={.5}/></mesh>}
+    {emote==='heart'&&<mesh position={[0,2.30,0]}><sphereGeometry args={[.20,10,10]}/><meshStandardMaterial color="#ff77ac" emissive="#ff77ac" emissiveIntensity={.6}/></mesh>}
   </group>;
 }
 function CameraRig({players,selfId}){
@@ -222,7 +197,7 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
   const [text,setText]=useState('');
   const [seconds,setSeconds]=useState(null);
   const [end,setEnd]=useState(null);
-  const [showChat,setShowChat]=useState(true);
+  const [showChat,setShowChat]=useState(()=>typeof window!=='undefined' && window.innerWidth>1100);
   const ws=useRef(null);
   const keys=useRef(new Set());
   const touch=useRef({dx:0,dz:0});
@@ -359,6 +334,9 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
         <div className="stage-counter"><Users size={15}/> {players.length} online</div>
         {kind!=='home'&&<button className="stage-back stage-invite" onClick={inviteFriend}>Invite ↗</button>}
       </div>
+      <button type="button" className={'room-chat-toggle '+(showChat?'is-open':'')} onClick={()=>setShowChat(open=>!open)} aria-expanded={showChat} aria-controls="simcaster-room-chat" aria-label={showChat?'Close room chat':'Open room chat'}>
+        <MessageCircle size={17}/> {showChat?'Close chat':'Room chat'} {messages.length>0&&!showChat?'· '+Math.min(messages.length,99):''}
+      </button>
       <div className="stage-info">
         <span className={state==='Connected'?'connection-good':'connection-bad'}>{state==='Connected'?<Wifi size={13}/>:<WifiOff size={13}/>} {state}</span>
         <span>Room {room.split(':').slice(-1)[0]||'—'}</span>
@@ -398,15 +376,15 @@ export default function WorldView({user,kind='plaza',ownerFid=null,homeItems=[],
       {kind==='plaza' && <button className="goto-arcade" onClick={onArcade}><Crosshair size={16}/> Enter arcade</button>}
       {end&&<div className="match-result"><Flag size={25}/><h2>{end.winner===selfId?'You won!':end.winner?'Match complete':"It's a draw!"}</h2><p>{end.scores.map(s=>s.name+' '+s.score).join(' · ')}</p><button className="share-match" onClick={shareMatch}>Share to Farcaster <ExternalLink size={14}/></button><button className="close-match" onClick={()=>setEnd(null)} aria-label="Close match result">×</button></div>}
     </div>
-    <aside className={'world-panel '+(!showChat?'panel-collapsed':'')}>
-      <div className="world-panel-head"><div><strong>Live room</strong><small>{players.length} people here</small></div><button onClick={()=>setShowChat(!showChat)} aria-label="Toggle chat"><MessageCircle size={19}/></button></div>
-      {showChat&&<>
+    {showChat&&<aside id="simcaster-room-chat" className="world-panel" aria-label="Room chat">
+      <div className="world-panel-head"><div><strong>Live room</strong><small>{players.length} people here</small></div><button type="button" onClick={()=>setShowChat(false)} aria-label="Close room chat">×</button></div>
+      <>
         <div className="room-people">{players.map(p=><div key={p.id} className="room-person"><span className="tiny-avatar" style={{background:HEX[p.avatar?.color]||HEX.violet}}>{p.name[0]?.toUpperCase()}</span><span>{p.name}{p.id===selfId?' (you)':''}</span><span className="online-dot"/>{p.id!==selfId&&<span className="person-actions"><button title="Block chat" onClick={()=>action(p.fid,'blocks')}>Block</button><button title="Report player" onClick={()=>action(p.fid,'reports')}>Report</button></span>}</div>)}</div>
         <div className="room-chat-title"><MessageCircle size={15}/> Room chat</div>
         <div className="room-messages" ref={scroll}>{messages.length===0&&<p className="room-hint">Say hello! Everyone in this room can see your messages.</p>}{messages.map((msg,i)=>msg.type==='notice'?<div className="room-notice" key={i}>{msg.text}</div>:<div className="room-msg" key={i}><b>{msg.name}</b><p>{msg.text}</p></div>)}</div>
         <form className="room-compose" onSubmit={sendChat}><input aria-label="Chat message" value={text} onChange={e=>setText(e.target.value)} placeholder="Say something…" maxLength={180}/><button aria-label="Send message" type="submit"><Send size={17}/></button></form>
         <div className="chat-footnote">Be kind. Room chat is temporary.</div>
-      </>}
-    </aside>
+      </>
+    </aside>}
   </div>;
 }
