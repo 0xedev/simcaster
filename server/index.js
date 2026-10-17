@@ -292,8 +292,11 @@ app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 app.use('/api',(req,res)=>res.status(404).json({error:'Unknown API route'}));
 const dist=path.resolve(root,'dist');
 if(fs.existsSync(dist)) {
-  app.use(express.static(dist,{maxAge:'1h'}));
-  app.get('*',(req,res)=>res.sendFile(path.join(dist,'index.html')));
+  app.use(express.static(dist,{maxAge:'1h',setHeaders(res,filename){
+    // The SPA HTML must not be cached across deployments; assets are versioned.
+    if(path.basename(filename)==='index.html')res.setHeader('Cache-Control','no-store');
+  }}));
+  app.get('*',(req,res)=>{res.set('Cache-Control','no-store');res.sendFile(path.join(dist,'index.html'));});
 }
 const server=app.listen(PORT,()=>console.log('Simcaster API listening on '+PORT+'; demo='+DEMO));
 // These non-blocking startup probes diagnose Neynar credentials and feed access.
