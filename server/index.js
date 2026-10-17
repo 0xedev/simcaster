@@ -203,5 +203,22 @@ if(fs.existsSync(dist)) {
   app.get('*',(req,res)=>res.sendFile(path.join(dist,'index.html')));
 }
 const server=app.listen(PORT,()=>console.log('Simcaster API listening on '+PORT+'; demo='+DEMO));
+// Verify that the configured Neynar key can access the same feed used in the app.
+// This runs once per server start, never prints secrets, and does not block startup.
+async function verifyNeynarFeed() {
+  if (!process.env.NEYNAR_API_KEY) {
+    console.warn('[neynar-check] NEYNAR_API_KEY not configured');
+    return;
+  }
+  try {
+    const result = await neynar('feed',{feed_type:'filter',filter_type:'global_trending',limit:1});
+    if (!Array.isArray(result.casts)) throw new Error('Unexpected feed response');
+    console.info('[neynar-check] Neynar trending feed request succeeded');
+  } catch (error) {
+    console.error('[neynar-check] Neynar feed request failed: '+String(error?.message || 'Unknown error'));
+  }
+}
+void verifyNeynarFeed();
+
 const world=attachWorld(server,store,authFromReq,APP_ORIGIN);
 process.on('SIGTERM',()=>{world.close();server.close();});
