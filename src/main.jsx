@@ -5,6 +5,7 @@ import '@farcaster/auth-kit/styles.css';
 import { Home, Compass, Gamepad2, Radio, UserRound, Settings, LogOut, Sparkles, ArrowUpRight, ArrowRight, Plus, MessageCircle, Heart, Repeat2, Share2, Users, CircleHelp, MapPin, House, Zap, Play, Crown, Shield, Check, Pencil, Coffee, Sofa, Flower2, Lamp, RefreshCw, ExternalLink, Lock, Wifi, Globe, ChevronRight, Star, Clock3, Search, Menu, X, Palette, WandSparkles } from 'lucide-react';
 const WorldView = React.lazy(() => import('./WorldView.jsx'));
 const SimDiorama = React.lazy(() => import('./SimDiorama.jsx'));
+const NeynarWriteConnect = React.lazy(() => import('./NeynarWriteConnect.jsx'));
 import './styles.css';
 
 async function api(url, options={}) {
@@ -187,7 +188,7 @@ function Dashboard({user,onTab,stats,config}) {
     <div className="home-bottom"><div className="community-strip"><span className="community-symbol">❋</span><div><h3>Built around real people.</h3><p>Simcaster connects to Farcaster — one identity across your feed and your world.</p></div><button onClick={()=>onTab('feed')}>Open social feed <ArrowRight size={17}/></button></div></div>
   </div>;
 }
-function SocialFeed({user,notify}) {
+function SocialFeed({user,notify,writeClientId}) {
   const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
   const [fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
   const [writeStatus,setWriteStatus]=useState('not_connected'),[showWriteSetup,setShowWriteSetup]=useState(false);
@@ -214,6 +215,15 @@ function SocialFeed({user,notify}) {
       setWriteStatus(result.status);setShowWriteSetup(false);setSignerInput('');
       notify('Farcaster write access verified. You can post, like, recast and reply here.');
     }catch(e){notify(e.message);}finally{setSignerBusy(false);}
+  }
+  async function authorizeWrite(data){
+    if(!data?.signer_uuid || Number(data.fid)!==Number(user.fid))
+      throw new Error('The authorized Farcaster account does not match your Simcaster login.');
+    const result=await api('/me/signer',{method:'POST',body:JSON.stringify({signer_uuid:data.signer_uuid})});
+    if(result.status!=='approved')throw new Error('Farcaster write permission was not approved.');
+    setWriteStatus('approved');
+    setShowWriteSetup(false);
+    notify('Write access connected! Likes, recasts and replies now work inside Simcaster.');
   }
   function writeActionRequired(){
     setShowWriteSetup(true);
@@ -271,12 +281,18 @@ function SocialFeed({user,notify}) {
     {sample&&<div className="demo-banner"><Sparkles size={17}/><span>This is a preview feed, not real Farcaster posts.</span></div>}
     {showWriteSetup&&<div className="signer-sheet" role="dialog" aria-label="Enable Farcaster interactions">
       <div className="signer-sheet-head"><strong>Enable in-app reactions & posts</strong><button aria-label="Close write access dialog" onClick={()=>setShowWriteSetup(false)}>×</button></div>
-      <p>Farcaster sign-in verifies your identity, but publishing and reactions require a separate, user-approved Neynar signer. Connect an existing approved signer for this same Farcaster account. Your API key and signing credentials stay on the server.</p>
-      <form className="signer-form" onSubmit={connectSigner}>
-        <input placeholder="Approved Neynar signer UUID" aria-label="Neynar signer UUID" value={signerInput} onChange={e=>setSignerInput(e.target.value)} required/>
-        <button className="primary-btn" disabled={signerBusy||!signerInput.trim()} type="submit">{signerBusy?'Verifying…':'Verify signer'}</button>
-      </form>
-      <small>Signer approval is a separate Farcaster permission step. Do not paste seed phrases, private keys or passwords here.</small>
+      <p>Farcaster sign-in verifies your identity, but writing requires your explicit permission. Approve Simcaster once to like, reply and recast without leaving this page.</p>
+      {writeClientId&&<React.Suspense fallback={<div className="thread-status">Loading authorization…</div>}>
+        <NeynarWriteConnect clientId={writeClientId} onAuthorized={authorizeWrite} onError={e=>notify(e.message)}/>
+      </React.Suspense>}
+      {!writeClientId&&<p className="signer-setup-notice">The app operator must add Simcaster’s Neynar Client ID to Render and authorize the Simcaster domain in Neynar before one-click write access is available.</p>}
+      <details className="signer-advanced"><summary>Already have an approved Neynar signer?</summary>
+        <form className="signer-form" onSubmit={connectSigner}>
+          <input placeholder="Approved Neynar signer UUID" aria-label="Neynar signer UUID" value={signerInput} onChange={e=>setSignerInput(e.target.value)} required/>
+          <button className="primary-btn" disabled={signerBusy||!signerInput.trim()} type="submit">{signerBusy?'Verifying…':'Verify signer'}</button>
+        </form>
+      </details>
+      <small>Never share your wallet seed phrase or private key. Simcaster confirms the signer belongs to your Farcaster ID before accepting it.</small>
     </div>}
     <div className="feed-grid"><div className="feed-main">
       <form className="inline-feed-composer" onSubmit={publish}>
@@ -472,7 +488,7 @@ function App(){
       <div className="main-shell"><Topbar user={user} tab={tab} stats={stats} openMenu={()=>setMobileNav(true)} onTab={navigate}/>
       {user.demo&&<div className="demo-strip"><span>◈</span> DEMO MODE — your identity is local and your social feed contains sample content. <span>Not a live Farcaster account.</span></div>}
       {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab}/>:
-        tab==='feed'?<SocialFeed user={user} notify={notify}/>:
+        tab==='feed'?<SocialFeed user={user} notify={notify} writeClientId={config.writeClientId}/>:
         tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D plaza…</div>}><WorldView user={user} kind="plaza" onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:

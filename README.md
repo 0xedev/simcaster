@@ -33,7 +33,11 @@ For production-mode local serving, set APP_ORIGIN=http://localhost:3001 and PORT
 
 The Sign in with Farcaster flow uses an API-issued, one-time, 5-minute nonce, backend signature verification via @farcaster/auth-client and an httpOnly session cookie. Configure NEYNAR_API_KEY for profile lookup and live social feed, and OPTIMISM_RPC_URL with a reliable RPC. No API keys are embedded in the browser.
 
-Casting/reactions/replies currently open the external Farcaster client. **SIWF login does not grant writing permission**, and a per-user approved signer flow is not implemented in this vertical slice. POST /api/casts intentionally returns 501.
+The feed offers a native cast composer, conversations, likes and recasts when a **per-user approved Neynar signer** is connected. Sign in With Farcaster alone provides *read access only*; it does not grant write access.
+
+For an in-app user consent flow, create a Neynar App at https://dev.neynar.com, register your deployment's HTTPS origin as an authorized origin, then set `NEYNAR_CLIENT_ID` (a public client identifier) on Render. Users will see Neynar's explicit authorization prompt in the feed, and Simcaster verifies that the returned signer belongs to the logged-in FID before storing it server-side. Without a Neynar Client ID, the in-app write connection cannot be completed by ordinary users; linking a previously approved signer UUID is available as an advanced fallback.
+
+Do not use your account seed phrase, custody private key or password in Simcaster's signer form. Neynar may charge a fee when a signer is approved. Do not create new signers unnecessarily. This is not yet a fully tested production publishing flow.
 
 When NODE_ENV=production, SIMCASTER_DEMO_MODE=true is explicitly rejected.
 
@@ -41,6 +45,8 @@ When NODE_ENV=production, SIMCASTER_DEMO_MODE=true is explicitly rejected.
 
 - src/main.jsx: React app, sign-in, feed, dashboard, profile/home editors and arcade screens.
 - src/WorldView.jsx: Three.js React Three Fiber scene and world/arena/home UI.
+- src/AvatarFigure.jsx and src/SimDiorama.jsx: customizable animated 3D avatars and interactive home-page diorama.
+- src/NeynarWriteConnect.jsx: Neynar's optional explicit user write-authorization widget.
 - src/styles.css: responsive visual system.
 - server/index.js: Express API, SIWF auth, Neynar API proxy.
 - server/world.js: WebSocket world authority, matchmaking per room, movement, chat and Laser Tag.

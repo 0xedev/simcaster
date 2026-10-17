@@ -109,7 +109,7 @@ limiterCleanup.unref();
 app.use('/api/auth',throttle('auth',45,60000));
 app.use('/api/feed',throttle('feed',60,60000));
 app.get('/api/health',(_,res)=>res.json({ok:true,service:'simcaster'}));
-app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN}));
+app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN,writeClientId:signerUuidOk(process.env.NEYNAR_CLIENT_ID)?process.env.NEYNAR_CLIENT_ID:null}));
 app.get('/api/auth/session',(req,res)=>res.json({user:authFromReq(req)||null}));
 app.get('/api/auth/challenge',(_,res)=>{
   const nonce=crypto.randomBytes(16).toString('hex');
