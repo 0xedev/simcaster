@@ -1,0 +1,16 @@
+# Simcaster needs a single long-lived HTTP + WebSocket process.
+# Free Render instances spin down and have ephemeral files. This is an evaluation deployment,
+# not a production persistence solution.
+services:
+  - type: web
+    name: simcaster
+    runtime: node
+    plan: free
+    buildCommand: npm install --no-audit --no-fund && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SIMCASTER_DEMO_MODE
+        value: "false"
