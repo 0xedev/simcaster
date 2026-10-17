@@ -8,10 +8,10 @@
   },
   "scripts": {
     "dev": "concurrently -k \"vite --host 0.0.0.0\" \"node --env-file-if-exists=.env --watch server/index.js\"",
-    "build": "npm test && npm run build:app",
+    "build": "npm run build:app",
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test tests/*.test.js",
-    "check": "npm run test && npm run build",
+    "check": "npm test && npm run build",
     "build:app": "vite build"
   },
   "dependencies": {
