@@ -11,7 +11,8 @@ import { attachWorld } from './world.js';
 const dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(dirname,'..');
 const PORT=Number(process.env.PORT || 3001);
-const APP_ORIGIN=process.env.APP_ORIGIN || 'http://localhost:5173';
+// Render supplies the public HTTPS origin automatically; APP_ORIGIN remains an explicit override.
+const APP_ORIGIN=process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 const DOMAIN=new URL(APP_ORIGIN).host;
 const DEMO=process.env.SIMCASTER_DEMO_MODE === 'true';
 const STORE_FILE=path.resolve(root,process.env.DATA_FILE || '.data/simcaster.json');
