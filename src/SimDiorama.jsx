@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import AvatarFigure from './AvatarFigure.jsx';
 
@@ -47,8 +47,7 @@ function Studio({avatar}){
   </group>;
 }
 export default function SimDiorama({avatar={},variant='town',onExplore,onArcade,onHome}){
-  const [supported,setSupported]=useState(true);
-  useEffect(()=>{try{const canvas=document.createElement('canvas');setSupported(Boolean(canvas.getContext('webgl2')));}catch{setSupported(false);}},[]);
+  const [supported]=useState(()=>{try{return Boolean(document.createElement('canvas').getContext('webgl2'));}catch{return false;}});
   if(!supported)return <div className="diorama-fallback" aria-label="3D preview unavailable">
     <span aria-hidden="true">🌳 🏘️ ✨</span><p>Jump into your world</p>
     {onExplore&&<button onClick={onExplore}>Explore plaza →</button>}
