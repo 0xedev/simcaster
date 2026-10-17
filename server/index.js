@@ -213,6 +213,8 @@ async function verifyNeynarFeed() {
   const probes = [
     ['user lookup', 'user/bulk', {fids:3}, 'users'],
     ['dedicated trending feed', 'feed/trending', {limit:1}, 'casts'],
+    ['following feed', 'feed', {feed_type:'following',fid:3,limit:1}, 'casts'],
+    ['for-you feed', 'feed/for_you', {fid:3,limit:1}, 'casts'],
   ];
   for (const [name,endpoint,params,field] of probes) {
     try {
