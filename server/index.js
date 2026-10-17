@@ -22,7 +22,7 @@ const store=new Store(STORE_FILE);
 const challenges=new Map();
 const signerClient=createAppClient({
   relay:'https://relay.farcaster.xyz',
-  ethereum:viemConnector(process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io')
+  ethereum:viemConnector({rpcUrl:process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io'})
 });
 const app=express();
 app.disable('x-powered-by');
