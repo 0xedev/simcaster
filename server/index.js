@@ -46,7 +46,7 @@ const cookie=(req)=> {
 const authFromReq=req=>store.verifySession(cookie(req));
 const requireAuth=(req,res,next)=>{
   const user=authFromReq(req);
-  if (!user) return res.status(401).json({error:'Sign in to continue'});
+  if (!user) return res.status(401).json({error:'Your session has expired. Please sign in again.',code:'SESSION_EXPIRED'});
   req.user=user;
   next();
 };
@@ -91,6 +91,7 @@ app.use('/api/auth',throttle('auth',45,60000));
 app.use('/api/feed',throttle('feed',60,60000));
 app.get('/api/health',(_,res)=>res.json({ok:true,service:'simcaster'}));
 app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN}));
+app.get('/api/auth/session',(req,res)=>res.json({user:authFromReq(req)||null}));
 app.get('/api/auth/challenge',(_,res)=>{
   const nonce=crypto.randomBytes(16).toString('hex');
   challenges.set(nonce,Date.now()+5*60000);
@@ -103,10 +104,16 @@ app.post('/api/auth/verify',async(req,res)=>{
       signature.length>1500 || message.length>4000) return fail(res,'Invalid SIWF payload');
   const expiry=challenges.get(nonce);
   challenges.delete(nonce);
-  if (!expiry || expiry<Date.now()) return fail(res,'Challenge expired or already used',401);
+  if (!expiry || expiry<Date.now()){
+    console.warn('[auth] SIWF login rejected: missing, reused or expired challenge');
+    return fail(res,'Your login request expired. Please try signing in again.',401);
+  }
   try {
     const verified=await signerClient.verifySignInMessage({nonce,domain:DOMAIN,message,signature});
-    if (!verified.success || !Number.isSafeInteger(verified.fid) || verified.fid<1) return fail(res,'Signature verification failed',401);
+    if (!verified.success || !Number.isSafeInteger(verified.fid) || verified.fid<1) {
+      console.warn('[auth] SIWF verification returned unsuccessful; check domain and OP RPC');
+      return fail(res,'Could not verify the Farcaster signature. Please try signing in again.',401);
+    }
     const fid=verified.fid;
     let profile={};
     try {
@@ -117,7 +124,11 @@ app.post('/api/auth/verify',async(req,res)=>{
     const user=store.userFor(fid,profile);
     setSession(res,store.startSession(fid));
     return res.json({user});
-  } catch { return fail(res,'Unable to verify Farcaster signature',401); }
+  } catch (error) {
+    // Never log the user-signed message, signature, nonce or credential.
+    console.error('[auth] SIWF verification threw an exception:', error?.name || 'Error');
+    return fail(res,'Unable to verify Farcaster sign-in. Please retry.',401);
+  }
 });
 app.post('/api/auth/demo',(req,res)=>{
   if(!DEMO) return fail(res,'Demo authentication disabled',403);
@@ -185,12 +196,13 @@ app.get('/api/feed',requireAuth,async(req,res)=>{
     return DEMO?res.json({casts:sampleFeed(),sample:true,cursor:null}):fail(res,'Live Farcaster feed requires NEYNAR_API_KEY',503);
   }
   try{
-    const params=mode==='following'
-      ? {feed_type:'following',fid:req.user.fid,limit:20}
-      : {feed_type:'filter',filter_type:'global_trending',limit:20};
+    // Global-trending currently returns HTTP 400 with this Neynar account.
+    // Use the verified following feed for both tabs rather than repeatedly hitting
+    // a failing provider route. Tell the UI when it is a fallback.
+    const params={feed_type:'following',fid:req.user.fid,limit:20};
     if(typeof req.query.cursor==='string') params.cursor=req.query.cursor.slice(0,500);
     const data=await neynar('feed',params);
-    res.json({casts:data.casts || [],cursor:data.next?.cursor || null,sample:false});
+    res.json({casts:data.casts || [],cursor:data.next?.cursor || null,sample:false,feedFallback:mode==='trending'});
   }catch(e){fail(res,e.message,502);}
 });
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
