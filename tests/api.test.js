@@ -31,7 +31,7 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
   const port=34000+Math.floor(Math.random()*18000);
   const origin='http://localhost:'+port;
   const child=spawn(process.execPath,['server/index.js'],{cwd:process.cwd(),
-    env:{...process.env,PORT:String(port),APP_ORIGIN:origin,
+    env:{...process.env,PORT:String(port),APP_ORIGIN:'',RENDER_EXTERNAL_URL:origin,
       SIMCASTER_DEMO_MODE:'true',NODE_ENV:'test',DATA_FILE:path.join(tmp,'store.json')},
     stdio:'ignore'
   });
@@ -41,6 +41,10 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
   });
   try {
     await waitFor(origin+'/api/health');
+    const configResponse=await fetch(origin+'/api/config');
+    assert.equal(configResponse.status,200);
+    const config=await configResponse.json();
+    assert.equal(config.origin,origin,'Render origin is used when APP_ORIGIN is omitted');
     const challenge=await(await fetch(origin+'/api/auth/challenge')).json();
     assert.ok(challenge.nonce.length>=16);
     const bad=await fetch(origin+'/api/auth/demo',{method:'POST',headers:{origin:'https://attacker.example','content-type':'application/json'},body:'{"name":"Eve"}'});
