@@ -139,3 +139,12 @@
   .composer-actions>span{font-size:9px}
   .feed-page .page-heading .primary-btn{margin-top:5px}
 }
+
+
+/* Neynar's explicit user-consented write authorization. */
+.neynar-write-container{background:#fff;padding:17px;border-radius:11px;margin:12px 0;border:1px solid #e8ddf4}
+.neynar-write-container small{display:block;margin-top:11px;font-size:10px;color:#786c92;line-height:1.6}
+.signer-setup-notice{background:#fff8e5;color:#8c622d!important;padding:12px;border-radius:8px;border:1px solid #f0dbb3;font-size:11px!important}
+.signer-advanced{margin:13px 0}
+.signer-advanced summary{cursor:pointer;color:#7654ae;font-weight:800;font-size:11px}
+.signer-advanced .signer-form{margin-top:12px}
