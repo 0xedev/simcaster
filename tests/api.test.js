@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import WebSocket from 'ws';
 
-async function waitFor(url, attempts=60){
+async function waitFor(url, attempts=120){
   for(let i=0;i<attempts;i++){
     try {const response=await fetch(url);if(response.ok)return;} catch {}
     await new Promise(resolve=>setTimeout(resolve,130));
@@ -26,9 +26,9 @@ const waitPacket=(ws,event,match=()=>true)=>new Promise((resolve,reject)=>{
   ws.on('message',onMessage);
 });
 
-test('demo login, avatar persistence, origin checks and 2-player realtime world', {timeout:25000},async()=>{
+test('demo login, avatar persistence, origin checks and 2-player realtime world', {timeout:35000},async()=>{
   const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'simcaster-api-'));
-  const port=34000+Math.floor(Math.random()*18000);
+  const port=14000+Math.floor(Math.random()*8000);
   const origin='http://localhost:'+port;
   const child=spawn(process.execPath,['server/index.js'],{cwd:process.cwd(),
     env:{...process.env,PORT:String(port),APP_ORIGIN:origin,
@@ -151,6 +151,53 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     second.send(JSON.stringify({event:'chat',data:{text:'Hello from Bob'}}));
     const chat=await waitPacket(first,'chat',d=>d.text==='Hello from Bob');
     assert.equal(chat.name,'Bob');
+
+    // --- Street Tipping & Real-Time WebSocket Broadcast Verification ---
+    // 1. Self-tipping guard (400)
+    const selfTipRes = await post('/tips', { toFid: user.user.fid, amount: 10, currency: 'degen' }, cookie);
+    assert.equal(selfTipRes.status, 400);
+
+    // 2. Invalid / float amounts guard (400)
+    const floatTipRes = await post('/tips', { toFid: secondUser.fid, amount: 12.5, currency: 'degen' }, cookie);
+    assert.equal(floatTipRes.status, 400);
+
+    // 3. Non-existent recipient (404)
+    const ghostTipRes = await post('/tips', { toFid: 888888888, amount: 10, currency: 'degen' }, cookie);
+    assert.equal(ghostTipRes.status, 404);
+
+    // 4. Insufficient balance guard (402)
+    const brokeTipRes = await post('/tips', { toFid: secondUser.fid, amount: 999999, currency: 'degen' }, cookie);
+    assert.equal(brokeTipRes.status, 402);
+
+    // 5. Valid tip execution and WebSocket broadcast to peer in plaza
+    const tipPromise = waitPacket(
+      second,
+      'tip',
+      (d) => d.fromFid === user.user.fid && d.toFid === secondUser.fid && d.amount === 50
+    );
+    const validTipRes = await post(
+      '/tips',
+      { toFid: secondUser.fid, amount: 50, currency: 'degen' },
+      cookie
+    );
+    assert.equal(validTipRes.status, 200);
+    const validTipJson = await validTipRes.json();
+    assert.equal(validTipJson.ok, true);
+    assert.equal(validTipJson.tip.amount, 50);
+    assert.equal(validTipJson.tip.currency, 'degen');
+    assert.equal(validTipJson.tip.fromBalance, 950);
+    assert.equal(validTipJson.tip.toBalance, 1050);
+    assert.equal(validTipJson.tip.cloutAwarded, 5);
+    assert.equal(validTipJson.tip.vibeAwarded, 5);
+
+    const tipPacket = await tipPromise;
+    assert.equal(tipPacket.fromFid, user.user.fid);
+    assert.equal(tipPacket.toFid, secondUser.fid);
+    assert.equal(tipPacket.amount, 50);
+
+    const meAfterTip = await (await fetch(origin + '/api/me', { headers: { cookie } })).json();
+    assert.equal(meAfterTip.user.currencies.degen, 950);
+
     const anonymous=new WebSocket('ws://localhost:'+port+'/socket?room=plaza',{headers:{origin}});
     const closed=await new Promise(resolve=>{anonymous.on('error',()=>resolve(true));anonymous.on('close',()=>resolve(true));});
     assert.equal(closed,true);
@@ -166,3 +213,5 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     fs.rmSync(tmp,{recursive:true,force:true});
   }
 });
+
+

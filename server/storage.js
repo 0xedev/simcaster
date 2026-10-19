@@ -56,6 +56,22 @@ export const CITY_POLICIES = {
   arcade_fever: { id: 'arcade_fever', label: 'Arcade Fever', description: '2x Creds & Clout for Laser Tag match winners' }
 };
 
+export const SUPPORTED_CURRENCIES = ['degen', 'moxie', 'warps', 'creds'];
+
+export const DEFAULT_CURRENCIES = {
+  degen: 1000,
+  moxie: 500,
+  warps: 100,
+  creds: 250
+};
+
+export function normalizeCurrency(raw) {
+  if (typeof raw !== 'string') return 'degen';
+  const clean = raw.trim().replace(/^[\$₡]/, '').toLowerCase();
+  if (clean === 'cred') return 'creds';
+  return SUPPORTED_CURRENCIES.includes(clean) ? clean : null;
+}
+
 const furniture = FURNITURE_CATALOG.map((f) => f.type);
 
 export function validateAvatar(input) {
@@ -100,6 +116,96 @@ export function validateHome(input, tierId = 'studio') {
       return rot ? { type: item.type, x: item.x, z: item.z, rot } : { type: item.type, x: item.x, z: item.z };
     })
   };
+}
+
+export function sampleFeed(channel = null) {
+  const allSampleCasts = [
+    // /farcaster (Main Plaza)
+    {
+      hash: 'demo-farcaster-1',
+      channel: 'farcaster',
+      author: { fid: 1, display_name: 'Dan Romero', username: 'dwr.eth', pfp_url: '' },
+      text: 'Welcome to Simcaster Metropolis Plaza! Explore the districts, hang out by the fountain, and meet fellow casters. ✦',
+      timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
+      reactions: { likes_count: 88, recasts_count: 24 },
+      replies: { count: 12 }
+    },
+    {
+      hash: 'demo-farcaster-2',
+      channel: 'farcaster',
+      author: { fid: 2, display_name: 'Maya Chen', username: 'maya.world', pfp_url: '' },
+      text: 'Grabbed an iced matcha at Warp Bean Café ☕ The plaza vibes today are immaculate. Come say hi in the central square!',
+      timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
+      reactions: { likes_count: 45, recasts_count: 8 },
+      replies: { count: 5 }
+    },
+    // /dev (Builders Foundry)
+    {
+      hash: 'demo-dev-1',
+      channel: 'dev',
+      author: { fid: 3, display_name: 'Varun Srinivasan', username: 'v', pfp_url: '' },
+      text: 'Shipping mini-apps and Frames v2 directly inside the Builders Foundry. Latency <50ms across the plaza grid. 💻⚡',
+      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
+      reactions: { likes_count: 142, recasts_count: 38 },
+      replies: { count: 19 }
+    },
+    {
+      hash: 'demo-dev-2',
+      channel: 'dev',
+      author: { fid: 4, display_name: 'Elena Rostova', username: 'elena_dev', pfp_url: '' },
+      text: 'Just optimized our R3F instanced meshes for Simcaster avatars. 60fps on mobile! Building in public at The Foundry Studio.',
+      timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
+      reactions: { likes_count: 56, recasts_count: 14 },
+      replies: { count: 7 }
+    },
+    // /memes (Arcade Lounge)
+    {
+      hash: 'demo-memes-1',
+      channel: 'memes',
+      author: { fid: 5, display_name: 'Theo Rivers', username: 'theor', pfp_url: '' },
+      text: 'The Laser Tag Arcade is popping off! Who thinks they can beat my high score in the arena today? 🕹️🔥',
+      timestamp: new Date(Date.now() - 120 * 60000).toISOString(),
+      reactions: { likes_count: 95, recasts_count: 29 },
+      replies: { count: 15 }
+    },
+    {
+      hash: 'demo-memes-2',
+      channel: 'memes',
+      author: { fid: 6, display_name: 'Degen Pepe', username: 'degenpepe', pfp_url: '' },
+      text: 'Me pretending to work barista shifts while secretly tipping everyone 100 $DEGEN at the Purple Lounge 🐸☕',
+      timestamp: new Date(Date.now() - 180 * 60000).toISOString(),
+      reactions: { likes_count: 210, recasts_count: 64 },
+      replies: { count: 28 }
+    },
+    // /base (Onchain Market)
+    {
+      hash: 'demo-base-1',
+      channel: 'base',
+      author: { fid: 7, display_name: 'Jesse Pollak', username: 'jesse.base.eth', pfp_url: '' },
+      text: 'Base is for everyone. Onchain pop-up market is officially live with zero-gas drops! Based and plaza-pilled 🔵✨',
+      timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
+      reactions: { likes_count: 340, recasts_count: 112 },
+      replies: { count: 44 }
+    },
+    {
+      hash: 'demo-base-2',
+      channel: 'base',
+      author: { fid: 8, display_name: 'Ari Okafor', username: 'ari', pfp_url: '' },
+      text: 'Flipped a limited creator merch drop at the Pop-Up Market for ₡200 creds! Economy onchain is thriving 🛍️',
+      timestamp: new Date(Date.now() - 240 * 60000).toISOString(),
+      reactions: { likes_count: 67, recasts_count: 18 },
+      replies: { count: 9 }
+    }
+  ];
+
+  if (!channel || typeof channel !== 'string') {
+    return allSampleCasts;
+  }
+  const clean = channel.trim().replace(/^\/+/, '').toLowerCase();
+  if (!clean || clean === 'all' || clean === 'global') {
+    return allSampleCasts;
+  }
+  return allSampleCasts.filter((c) => c.channel === clean);
 }
 
 export class Store {
@@ -217,6 +323,25 @@ export class Store {
 
   ensureLifeState(a) {
     if (typeof a.creds !== 'number' || !Number.isFinite(a.creds)) a.creds = 250;
+    if (!a.currencies || typeof a.currencies !== 'object') {
+      a.currencies = {
+        degen: 1000,
+        moxie: 500,
+        warps: 100,
+        creds: a.creds
+      };
+    } else {
+      if (typeof a.currencies.degen !== 'number' || !Number.isFinite(a.currencies.degen)) a.currencies.degen = 1000;
+      if (typeof a.currencies.moxie !== 'number' || !Number.isFinite(a.currencies.moxie)) a.currencies.moxie = 500;
+      if (typeof a.currencies.warps !== 'number' || !Number.isFinite(a.currencies.warps)) a.currencies.warps = 100;
+      if (typeof a.currencies.creds !== 'number' || !Number.isFinite(a.currencies.creds)) {
+        a.currencies.creds = a.creds;
+      }
+      if (a.creds !== a.currencies.creds) {
+        a.currencies.creds = a.creds;
+      }
+    }
+    a.creds = a.currencies.creds;
     if (typeof a.xp !== 'number' || !Number.isFinite(a.xp)) a.xp = 0;
     a.career = careerForXp(a.xp).id;
     if (!a.needs || typeof a.needs !== 'object') {
@@ -228,6 +353,9 @@ export class Store {
       a.needs.clout = clamp(Math.round(a.needs.clout ?? 10), 0, 100);
     }
     if (!HOME_TIERS[a.homeTier]) a.homeTier = 'studio';
+    if (typeof a.powerBadge !== 'boolean') {
+      a.powerBadge = Boolean(a.powerBadge);
+    }
     if (!Array.isArray(a.ownedFurniture)) {
       a.ownedFurniture = ['sofa', 'table', 'plant', 'lamp', 'rug', 'chair'];
     }
@@ -295,6 +423,12 @@ export class Store {
         avatarUrl: '',
         avatar: { color: 'violet', outfit: 'street', hair: 'short' },
         creds: 250,
+        currencies: {
+          degen: 1000,
+          moxie: 500,
+          warps: 100,
+          creds: 250
+        },
         xp: 0,
         career: 'newcomer',
         needs: { energy: 85, hunger: 80, vibe: 75, clout: 10 },
@@ -308,8 +442,112 @@ export class Store {
     if (typeof profile.username === 'string' && profile.username) a.username = profile.username.slice(0, 32);
     if (typeof profile.displayName === 'string' && profile.displayName) a.displayName = profile.displayName.slice(0, 64);
     if (typeof profile.avatarUrl === 'string' && profile.avatarUrl.startsWith('https://')) a.avatarUrl = profile.avatarUrl.slice(0, 500);
+    if (typeof profile.power_badge === 'boolean') a.powerBadge = profile.power_badge;
+    else if (typeof profile.powerBadge === 'boolean') a.powerBadge = profile.powerBadge;
     this.save();
     return a;
+  }
+
+  transferTip(fromFid, toFid, amount, currency = 'degen', options = {}) {
+    const senderFid = Number(fromFid);
+    const recipientFid = Number(toFid);
+
+    if (!Number.isSafeInteger(senderFid) || senderFid < 1) {
+      throw new Error('Invalid sender FID');
+    }
+    if (!Number.isSafeInteger(recipientFid) || recipientFid < 1) {
+      throw new Error('Invalid recipient FID (toFid is required)');
+    }
+    if (senderFid === recipientFid) {
+      throw new Error('Cannot tip yourself');
+    }
+
+    const curr = normalizeCurrency(currency);
+    if (!curr) {
+      throw new Error(`Unsupported currency: ${currency}. Supported: ${SUPPORTED_CURRENCIES.join(', ')}`);
+    }
+
+    const tipAmount = Number(amount);
+    if (!Number.isSafeInteger(tipAmount) || tipAmount <= 0) {
+      throw new Error('Tip amount must be a positive integer');
+    }
+
+    if (this.isBlocked(senderFid, recipientFid)) {
+      throw new Error('Cannot tip a blocked player');
+    }
+
+    const sender = this.findUser(senderFid);
+    if (!sender) {
+      throw new Error('Sender account not found');
+    }
+
+    const castHash = typeof options === 'string' ? options : options?.castHash || null;
+
+    let recipient = this.findUser(recipientFid);
+    if (!recipient && castHash) {
+      const cast = (this.state.casts || []).find((c) => c.hash === castHash) ||
+        sampleFeed().find((c) => c.hash === castHash);
+      if (cast && Number(cast.author?.fid) === recipientFid) {
+        recipient = this.userFor(recipientFid, {
+          displayName: cast.author.display_name,
+          username: cast.author.username,
+          avatarUrl: cast.author.pfp_url
+        });
+      }
+    }
+
+    if (!recipient && (recipientFid === 12345 || (recipientFid >= 1 && recipientFid <= 10))) {
+      recipient = this.userFor(recipientFid, {
+        displayName: recipientFid === 12345 ? 'Bob' : 'Caster #' + recipientFid,
+        username: recipientFid === 12345 ? 'bob' : 'caster' + recipientFid
+      });
+    }
+
+    if (!recipient) {
+      const err = new Error('Recipient account not found');
+      err.code = 'RECIPIENT_NOT_FOUND';
+      throw err;
+    }
+
+    const senderBalance = sender.currencies?.[curr] ?? 0;
+    if (senderBalance < tipAmount) {
+      const err = new Error(`Insufficient ${curr.toUpperCase()} balance (have ${senderBalance}, need ${tipAmount})`);
+      err.code = 'INSUFFICIENT_BALANCE';
+      throw err;
+    }
+
+    // Execute transfer
+    sender.currencies[curr] -= tipAmount;
+    recipient.currencies[curr] = (recipient.currencies[curr] || 0) + tipAmount;
+
+    if (curr === 'creds') {
+      sender.creds = sender.currencies.creds;
+      recipient.creds = recipient.currencies.creds;
+    }
+
+    // Award +5 Clout and +5 Vibe to both accounts (clamped 0-100)
+    sender.needs.clout = clamp(sender.needs.clout + 5, 0, 100);
+    sender.needs.vibe = clamp(sender.needs.vibe + 5, 0, 100);
+    recipient.needs.clout = clamp(recipient.needs.clout + 5, 0, 100);
+    recipient.needs.vibe = clamp(recipient.needs.vibe + 5, 0, 100);
+
+    this.recordQuestProgress(senderFid, 'civic_life', 1);
+
+    this.save();
+
+    return {
+      fromFid: senderFid,
+      fromName: sender.displayName,
+      toFid: recipientFid,
+      toName: recipient.displayName,
+      amount: tipAmount,
+      currency: curr,
+      castHash: castHash ? String(castHash) : null,
+      fromBalance: sender.currencies[curr],
+      toBalance: recipient.currencies[curr],
+      cloutAwarded: 5,
+      vibeAwarded: 5
+    };
   }
 
   findUser(fid) {
@@ -396,7 +634,9 @@ export class Store {
 
     const policy = this.cityStatus().activePolicy;
     let cost = action.cost || 0;
-    if (policy === 'zero_cafe_tax' && cost > 0) {
+    if (user.powerBadge && hotspotId === 'neon-lounge' && actionId === 'party') {
+      cost = 0; // VIP Rooftop Session fee bypass for Power Badge holders
+    } else if (policy === 'zero_cafe_tax' && cost > 0) {
       cost = Math.max(1, Math.floor(cost * 0.5));
     }
     if (user.creds < cost) {
@@ -561,10 +801,25 @@ export class Store {
     this.save();
   }
 
-  createCast(fid, { text, parent = null, quote = null, externalHash = null } = {}) {
+  createCast(fid, { text, channel = null, parent = null, quote = null, externalHash = null } = {}) {
     const content = typeof text === 'string' ? text.trim() : '';
     if (!content || content.length > 320) {
       throw new Error('Cast text must be 1–320 characters');
+    }
+    let normalizedChannel = null;
+    if (typeof channel === 'string') {
+      const clean = channel.trim().replace(/^\/+/, '').toLowerCase();
+      if (clean.length > 0) {
+        normalizedChannel = clean.slice(0, 32);
+      }
+    } else if (channel && typeof channel === 'object') {
+      const raw = channel.id || channel.channel_id || channel.channel || '';
+      if (typeof raw === 'string') {
+        const clean = raw.trim().replace(/^\/+/, '').toLowerCase();
+        if (clean.length > 0) {
+          normalizedChannel = clean.slice(0, 32);
+        }
+      }
     }
     const user = this.findUser(fid);
     const hash =
@@ -584,6 +839,7 @@ export class Store {
     const cast = {
       hash,
       parent_hash: parent ? String(parent) : null,
+      channel: normalizedChannel,
       author: {
         fid: Number(fid),
         display_name: user?.displayName || 'Simcaster User',
@@ -693,11 +949,39 @@ export class Store {
     };
   }
 
-  decorateCasts(upstreamCasts = [], viewerFid = null) {
-    const topLevelLocal = (this.state.casts || []).filter((c) => !c.parent_hash);
+  decorateCasts(upstreamCasts = [], viewerFid = null, channelFilter = null) {
+    let target = null;
+    if (typeof channelFilter === 'string') {
+      target = channelFilter.trim().replace(/^\/+/, '').toLowerCase();
+    } else if (channelFilter && typeof channelFilter === 'object' && typeof channelFilter.channel === 'string') {
+      target = channelFilter.channel.trim().replace(/^\/+/, '').toLowerCase();
+    }
+    if (target === 'all' || target === 'global') target = null;
+
+    let topLevelLocal = (this.state.casts || []).filter((c) => !c.parent_hash);
+    if (target) {
+      topLevelLocal = topLevelLocal.filter((c) => {
+        if (!c.channel) {
+          return target === 'farcaster';
+        }
+        const cChan = typeof c.channel === 'string' ? c.channel : c.channel?.id;
+        return cChan && cChan.toLowerCase() === target;
+      });
+    }
+
     const seen = new Set();
     const combined = [];
-    for (const c of [...topLevelLocal, ...(Array.isArray(upstreamCasts) ? upstreamCasts : [])]) {
+    const upstreamFiltered = Array.isArray(upstreamCasts)
+      ? (target
+          ? upstreamCasts.filter((c) => {
+              const cChan = c.channel?.id || c.channel_id || (typeof c.channel === 'string' ? c.channel : null);
+              if (!cChan) return target === 'farcaster';
+              return cChan.toLowerCase() === target;
+            })
+          : upstreamCasts)
+      : [];
+
+    for (const c of [...topLevelLocal, ...upstreamFiltered]) {
       if (!c || !c.hash || seen.has(c.hash)) continue;
       seen.add(c.hash);
       combined.push(this.decorateCast(c, viewerFid));

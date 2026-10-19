@@ -45,10 +45,41 @@ export default function CastPhone({
   onVisitHome,
   onGoHome,
   onGoPlaza,
-  initialApp = 'jobs'
+  initialApp = 'jobs',
+  activeChannel = null
 }) {
   const dialogRef = useRef(null);
   const [app, setApp] = useState(initialApp);
+
+  const channelId = typeof activeChannel === 'string'
+    ? activeChannel.replace(/^\/+/, '').toLowerCase()
+    : activeChannel?.channel
+      ? String(activeChannel.channel).replace(/^\/+/, '').toLowerCase()
+      : activeChannel?.id
+        ? String(activeChannel.id).replace(/^\/+/, '').toLowerCase()
+        : null;
+
+  const channelName = typeof activeChannel === 'object' && activeChannel?.name
+    ? activeChannel.name
+    : channelId
+      ? channelId.charAt(0).toUpperCase() + channelId.slice(1)
+      : null;
+
+  const channelPill = typeof activeChannel === 'object' && activeChannel?.pill
+    ? activeChannel.pill
+    : channelId
+      ? `/${channelId}`
+      : null;
+
+  const channelColor = typeof activeChannel === 'object' && activeChannel?.color
+    ? activeChannel.color
+    : channelId === 'dev'
+      ? '#38bdf8'
+      : channelId === 'memes'
+        ? '#f43f5e'
+        : channelId === 'base'
+          ? '#0052ff'
+          : '#8a63d2';
   const [catalog, setCatalog] = useState({
     furniture: [],
     homeTiers: {},
@@ -129,7 +160,10 @@ export default function CastPhone({
   useEffect(() => {
     if (!open) return;
     if (app === 'feed') {
-      phoneApi('/feed?mode=trending')
+      const feedQuery = channelId
+        ? `/feed?mode=trending&channel=${encodeURIComponent(channelId)}`
+        : '/feed?mode=trending';
+      phoneApi(feedQuery)
         .then((r) => setCasts(r.casts || []))
         .catch(() => {});
     } else if (app === 'friends') {
@@ -139,7 +173,7 @@ export default function CastPhone({
     } else if (app === 'mayor') {
       phoneApi('/city').then(setCity).catch(() => {});
     }
-  }, [open, app]);
+  }, [open, app, channelId]);
 
   const needs = user?.needs || { energy: 85, hunger: 80, vibe: 75, clout: 10 };
   const creds = user?.creds ?? 250;
@@ -267,6 +301,66 @@ export default function CastPhone({
 
   const [phoneReply, setPhoneReply] = useState(null);
   const [phoneQuote, setPhoneQuote] = useState(null);
+  const [tipCastHash, setTipCastHash] = useState(null);
+  const [pendingTipHash, setPendingTipHash] = useState(null);
+  const [pendingTipAmount, setPendingTipAmount] = useState(null);
+
+  async function tipCastInPhone(cast, amount) {
+    if (busy) return;
+    try {
+      setBusy(true);
+      setPendingTipHash(cast.hash);
+      setPendingTipAmount(amount);
+
+      const res = await phoneApi('/tips', {
+        method: 'POST',
+        body: JSON.stringify({
+          toFid: cast.author?.fid,
+          amount,
+          currency: 'degen',
+          castHash: cast.hash
+        })
+      });
+
+      if (soundEngine.playTipCoin) soundEngine.playTipCoin(amount);
+      else soundEngine.playCash();
+
+      if (res.user && onUserUpdate) {
+        onUserUpdate(res.user);
+      } else if (res.tip && onUserUpdate) {
+        onUserUpdate((prev) => ({
+          ...prev,
+          creds: res.tip.fromBalance ?? ((prev?.creds ?? 250) - amount),
+          needs: {
+            ...(prev?.needs || {}),
+            clout: Math.min(100, (prev?.needs?.clout || 0) + (res.tip.cloutAwarded || 5)),
+            vibe: Math.min(100, (prev?.needs?.vibe || 0) + (res.tip.vibeAwarded || 5))
+          }
+        }));
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('simcaster:tip', {
+          detail: {
+            toFid: cast.author?.fid,
+            toName: cast.author?.display_name || cast.author?.username,
+            amount,
+            currency: 'degen',
+            castHash: cast.hash
+          }
+        })
+      );
+
+      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} ₡DEGEN (+5 Clout, +5 Vibe)!`);
+      setTipCastHash(null);
+    } catch (err) {
+      notify(err.message || 'Tip failed');
+    } finally {
+      setBusy(false);
+      setPendingTipHash(null);
+      setPendingTipAmount(null);
+    }
+  }
 
   async function postQuickCast(e) {
     e.preventDefault();
@@ -277,6 +371,7 @@ export default function CastPhone({
         method: 'POST',
         body: JSON.stringify({
           text: castText.trim(),
+          ...(channelId ? { channel: channelId } : {}),
           ...(phoneReply ? { parent: phoneReply.hash } : {}),
           ...(phoneQuote
             ? {
@@ -294,8 +389,19 @@ export default function CastPhone({
       setCastText('');
       setPhoneReply(null);
       setPhoneQuote(null);
-      notify(phoneReply ? 'Reply published (+2 Clout)!' : phoneQuote ? 'Quote cast published (+2 Clout)!' : 'Cast published (+2 Clout)!');
-      const r = await phoneApi('/feed?mode=trending');
+      notify(
+        phoneReply
+          ? 'Reply published (+2 Clout)!'
+          : phoneQuote
+            ? 'Quote cast published (+2 Clout)!'
+            : channelId
+              ? `Cast published to /${channelId} (+2 Clout)!`
+              : 'Cast published (+2 Clout)!'
+      );
+      const feedQuery = channelId
+        ? `/feed?mode=trending&channel=${encodeURIComponent(channelId)}`
+        : '/feed?mode=trending';
+      const r = await phoneApi(feedQuery);
       setCasts(r.casts || []);
     } catch (err) {
       notify(err.message);
@@ -311,7 +417,10 @@ export default function CastPhone({
         method: 'POST',
         body: JSON.stringify({ hash: cast.hash, type, remove: wasOn })
       });
-      const r = await phoneApi('/feed?mode=trending');
+      const feedQuery = channelId
+        ? `/feed?mode=trending&channel=${encodeURIComponent(channelId)}`
+        : '/feed?mode=trending';
+      const r = await phoneApi(feedQuery);
       setCasts(r.casts || []);
       notify(!wasOn ? (type === 'like' ? 'Liked (+1 Vibe)' : 'Recasted (+1 Vibe)') : 'Reaction removed');
     } catch (err) {
@@ -341,6 +450,22 @@ export default function CastPhone({
             <span className="live-pulse" />
             <strong>CastPhone OS</strong>
             <span className="castphone-career">{currentCareer.title}</span>
+            {user?.powerBadge && (
+              <span
+                className="castphone-vip-pill"
+                title="Farcaster Power Badge Active"
+                style={{
+                  color: '#8a63d2',
+                  fontWeight: 900,
+                  fontSize: 10,
+                  background: 'rgba(138, 99, 210, 0.2)',
+                  padding: '2px 6px',
+                  borderRadius: 99
+                }}
+              >
+                🟣 VIP
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -665,7 +790,9 @@ export default function CastPhone({
                       ? `Reply to @${phoneReply.author?.username || 'farcaster'}`
                       : phoneQuote
                         ? `Quote @${phoneQuote.author?.username || 'farcaster'}`
-                        : 'Quick Farcaster Cast'}
+                        : channelId
+                          ? `Post to /${channelId}`
+                          : 'Quick Farcaster Cast'}
                   </strong>
                   {(phoneReply || phoneQuote) && (
                     <button
@@ -680,6 +807,33 @@ export default function CastPhone({
                     </button>
                   )}
                 </div>
+
+                {channelId && !phoneReply && !phoneQuote && (
+                  <div
+                    className="phone-composer-channel"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: channelColor,
+                      marginBottom: 6
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        background: channelColor,
+                        display: 'inline-block'
+                      }}
+                    />
+                    Posting to {channelPill || `/${channelId}`} ({channelName || 'District'})
+                  </div>
+                )}
+
                 {phoneQuote && (
                   <small style={{ display: 'block', marginBottom: 6, opacity: 0.8 }}>
                     “{phoneQuote.text?.slice(0, 90)}”
@@ -693,73 +847,218 @@ export default function CastPhone({
                       ? 'Write your reply…'
                       : phoneQuote
                         ? 'Add your quote commentary…'
-                        : "Share what's happening in the Plaza…"
+                        : channelId
+                          ? `Share what's happening in ${channelPill || `/${channelId}`}…`
+                          : "Share what's happening in the Plaza…"
                   }
                   maxLength={320}
                 />
                 <button type="submit" disabled={busy || !castText.trim()} className="phone-btn-earn">
-                  <Send size={13} /> {phoneReply ? 'Post Reply' : phoneQuote ? 'Post Quote' : 'Post Cast'}
+                  <Send size={13} />{' '}
+                  {phoneReply ? 'Post Reply' : phoneQuote ? 'Post Quote' : channelId ? `Post to /${channelId}` : 'Post Cast'}
                 </button>
               </form>
-              <div className="phone-section-title">LATEST CASTS</div>
-              {casts.slice(0, 8).map((c) => (
-                <div className="phone-card" key={c.hash}>
-                  <div className="phone-card-row">
-                    <strong>{c.author?.display_name || c.author?.username || 'Caster'}</strong>
-                    <small>@{c.author?.username || 'farcaster'}</small>
-                  </div>
-                  <p className="phone-cast-text">{c.text}</p>
-                  {c.quote_cast && (
-                    <div
-                      style={{
-                        borderLeft: '2px solid #9871f1',
-                        paddingLeft: 8,
-                        margin: '6px 0',
-                        fontSize: 12,
-                        opacity: 0.9
-                      }}
-                    >
-                      <b>@{c.quote_cast.username}</b>: {c.quote_cast.text}
-                    </div>
-                  )}
-                  <div className="phone-action-list" style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="phone-btn-secondary"
-                      onClick={() => reactInPhone(c, 'like')}
-                    >
-                      ♥ {c.reactions?.likes_count || 0}
-                    </button>
-                    <button
-                      type="button"
-                      className="phone-btn-secondary"
-                      onClick={() => reactInPhone(c, 'recast')}
-                    >
-                      ↻ {c.reactions?.recasts_count || 0}
-                    </button>
-                    <button
-                      type="button"
-                      className="phone-btn-secondary"
-                      onClick={() => {
-                        setPhoneQuote(null);
-                        setPhoneReply(c);
-                      }}
-                    >
-                      Reply ({c.replies?.count || 0})
-                    </button>
-                    <button
-                      type="button"
-                      className="phone-btn-secondary"
-                      onClick={() => {
-                        setPhoneReply(null);
-                        setPhoneQuote(c);
-                      }}
-                    >
-                      Quote
-                    </button>
-                  </div>
+
+              <div
+                className="phone-feed-header"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: 10,
+                  marginBottom: 6
+                }}
+              >
+                <div className="phone-section-title" style={{ margin: 0 }}>
+                  {channelId ? 'DISTRICT STREAM' : 'LATEST CASTS'}
                 </div>
-              ))}
+                {channelId && (
+                  <div
+                    className="phone-channel-pill"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '3px 8px',
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: channelColor + '20',
+                      color: channelColor,
+                      border: `1px solid ${channelColor}55`
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: channelColor,
+                        display: 'inline-block'
+                      }}
+                    />
+                    {channelPill || `/${channelId}`}
+                  </div>
+                )}
+              </div>
+
+              {casts.length === 0 ? (
+                <div className="phone-empty">
+                  {channelId
+                    ? `No casts in ${channelPill || `/${channelId}`} yet. Be the first to cast here!`
+                    : 'No casts found in the trending feed.'}
+                </div>
+              ) : (
+                casts.slice(0, 8).map((c) => (
+                  <div className="phone-card" key={c.hash}>
+                    <div className="phone-card-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <strong>{c.author?.display_name || c.author?.username || 'Caster'}</strong>
+                        {(c.author?.power_badge || c.author?.powerBadge) && (
+                          <span title="Farcaster Power Badge" style={{ color: '#8a63d2', fontSize: 11 }}>
+                            🟣
+                          </span>
+                        )}
+                        {c.channel && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              padding: '1px 5px',
+                              borderRadius: 8,
+                              background: '#8a63d222',
+                              color: '#8a63d2',
+                              fontWeight: 600
+                            }}
+                          >
+                            /{typeof c.channel === 'string' ? c.channel : c.channel?.id}
+                          </span>
+                        )}
+                      </div>
+                      <small>@{c.author?.username || 'farcaster'}</small>
+                    </div>
+                    <p className="phone-cast-text">{c.text}</p>
+                    {c.quote_cast && (
+                      <div
+                        style={{
+                          borderLeft: '2px solid #9871f1',
+                          paddingLeft: 8,
+                          margin: '6px 0',
+                          fontSize: 12,
+                          opacity: 0.9
+                        }}
+                      >
+                        <b>@{c.quote_cast.username}</b>: {c.quote_cast.text}
+                      </div>
+                    )}
+                    <div className="phone-action-list" style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="phone-btn-secondary"
+                        onClick={() => reactInPhone(c, 'like')}
+                      >
+                        ♥ {c.reactions?.likes_count || 0}
+                      </button>
+                      <button
+                        type="button"
+                        className="phone-btn-secondary"
+                        onClick={() => reactInPhone(c, 'recast')}
+                      >
+                        ↻ {c.reactions?.recasts_count || 0}
+                      </button>
+                      <button
+                        type="button"
+                        className="phone-btn-secondary"
+                        onClick={() => {
+                          setPhoneQuote(null);
+                          setPhoneReply(c);
+                        }}
+                      >
+                        Reply ({c.replies?.count || 0})
+                      </button>
+                      <button
+                        type="button"
+                        className="phone-btn-secondary"
+                        onClick={() => {
+                          setPhoneReply(null);
+                          setPhoneQuote(c);
+                        }}
+                      >
+                        Quote
+                      </button>
+                      {Number(c.author?.fid) !== Number(user?.fid) && (
+                        <button
+                          type="button"
+                          className={`phone-btn-secondary ${tipCastHash === c.hash ? 'active' : ''}`}
+                          onClick={() => setTipCastHash(tipCastHash === c.hash ? null : c.hash)}
+                          aria-label={`Tip @${c.author?.username || 'caster'}`}
+                        >
+                          🪙 Tip
+                        </button>
+                      )}
+                    </div>
+
+                    {tipCastHash === c.hash && (
+                      <div className="phone-tip-panel" role="region" aria-label="Tip options" style={{
+                        background: '#fdfcf7',
+                        border: '1px solid #f3e6b5',
+                        borderRadius: 10,
+                        padding: '8px 10px',
+                        marginTop: 8
+                      }}>
+                        <div className="phone-tip-header" style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 6,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#634b07'
+                        }}>
+                          <span>Tip @{c.author?.username || 'caster'}:</span>
+                          <button
+                            type="button"
+                            className="phone-tip-close"
+                            onClick={() => setTipCastHash(null)}
+                            aria-label="Close tip options"
+                            style={{ background: 'none', border: 'none', color: '#927e48', fontSize: 16, cursor: 'pointer' }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="phone-tip-presets" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {[10, 50, 100].map((amt) => {
+                            const canAfford = creds >= amt;
+                            const isThisBusy = busy && pendingTipHash === c.hash && pendingTipAmount === amt;
+                            return (
+                              <button
+                                key={amt}
+                                type="button"
+                                className="phone-btn-tip-preset"
+                                disabled={busy || !canAfford}
+                                onClick={() => tipCastInPhone(c, amt)}
+                                title={!canAfford ? 'Insufficient balance' : `Tip ${amt} ₡DEGEN`}
+                                style={{
+                                  background: canAfford ? '#fff8dd' : '#f0eddf',
+                                  color: canAfford ? '#795b05' : '#9a9484',
+                                  border: canAfford ? '1.5px solid #f2db8a' : '1.5px solid #ded9c7',
+                                  borderRadius: 8,
+                                  padding: '5px 10px',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  cursor: canAfford && !busy ? 'pointer' : 'not-allowed',
+                                  opacity: canAfford ? 1 : 0.5
+                                }}
+                              >
+                                {isThisBusy ? '...' : `${amt} ₡DEGEN`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
 

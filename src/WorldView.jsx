@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { soundEngine } from './sound.js';
 import { loadGltfModel } from './skeletal.js';
+import { DISTRICTS, getPlazaDistrict } from '../server/rules.js';
 
 const HEX = { violet: '#8d64f7', citrus: '#eec35b', coral: '#ff898a', mint: '#5dd3ba', sky: '#73bff2' };
 
@@ -373,7 +374,164 @@ function FarcasterGltfBeacon({ blackout }) {
   );
 }
 
-function Plaza({ hotspots, activeHotspotId, onSelectHotspot, timePhase, cityEvent }) {
+const DISTRICT_AMBIENT_CASTS = {
+  farcaster: {
+    author: { display_name: 'Maya Chen', username: 'maya.world' },
+    text: 'Welcome to Simcaster Metropolis Plaza! Central fountain relay is synced. ✦'
+  },
+  dev: {
+    author: { display_name: 'Alex Rivera', username: 'alexr.eth' },
+    text: 'Shipping new Farcaster Frames & mini-apps at Foundry Studio today! 💻'
+  },
+  memes: {
+    author: { display_name: 'Theo Rivers', username: 'theor' },
+    text: 'Laser tag championship at Arcade HQ tonight! Who can beat 7-0? 🕹️'
+  },
+  base: {
+    author: { display_name: 'Sarah Connor', username: 'sarahc.base' },
+    text: 'Limited creator drops live at the Pop-Up Market. Collect on Base 🔵'
+  }
+};
+
+const DISTRICT_KIOSKS = [
+  { districtId: 'farcaster', pos: [0, 0, -5.5], rotY: 0 },
+  { districtId: 'dev', pos: [6.8, 0, -7.5], rotY: -Math.PI * 0.65 },
+  { districtId: 'memes', pos: [-5.5, 0, 7.5], rotY: Math.PI * 0.35 },
+  { districtId: 'base', pos: [6.5, 0, 7.5], rotY: -Math.PI * 0.35 }
+];
+
+function DistrictKiosk({ district, cast, pos, rotY, onOpenChannel, blackout }) {
+  const crystalRef = useRef();
+
+  useFrame(({ clock }) => {
+    if (crystalRef.current) {
+      crystalRef.current.rotation.y = clock.elapsedTime * 1.8;
+      crystalRef.current.position.y = 3.35 + Math.sin(clock.elapsedTime * 3) * 0.08;
+    }
+  });
+
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#1a142c');
+    grad.addColorStop(1, '#0e0b19');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 256);
+
+    // Glowing border
+    ctx.strokeStyle = district.color;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(6, 6, 500, 244);
+
+    // Header bar
+    ctx.fillStyle = district.color;
+    ctx.fillRect(10, 10, 492, 54);
+
+    // Header text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${district.pill} · ${district.name.toUpperCase()}`, 24, 37);
+
+    // Author line
+    ctx.fillStyle = district.accent || '#a78bfa';
+    ctx.font = 'bold 20px sans-serif';
+    const author = cast?.author?.display_name ? `${cast.author.display_name} (@${cast.author.username})` : 'Simcaster Ambient Feed';
+    ctx.fillText(author, 24, 95);
+
+    // Cast text
+    ctx.fillStyle = '#eee9f9';
+    ctx.font = '500 18px sans-serif';
+    const text = cast?.text || district.tagline || 'Explore the district and join the conversation.';
+
+    // Multi-line wrap
+    const words = text.split(' ');
+    let line = '';
+    let y = 132;
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      if (ctx.measureText(testLine).width > 464 && n > 0) {
+        ctx.fillText(line, 24, y);
+        line = words[n] + ' ';
+        y += 28;
+        if (y > 175) break;
+      } else {
+        line = testLine;
+      }
+    }
+    if (y <= 175) ctx.fillText(line, 24, y);
+
+    // CTA Footer
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('CLICK TO OPEN IN CASTPHONE ↗', 24, 224);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [district, cast]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <group
+      position={pos}
+      rotation={[0, rotY || 0, 0]}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onOpenChannel) onOpenChannel(district.id);
+      }}
+    >
+      {/* Base */}
+      <mesh castShadow receiveShadow position={[0, 0.09, 0]}>
+        <cylinderGeometry args={[0.7, 0.85, 0.18, 16]} />
+        <meshStandardMaterial color="#2d2547" roughness={0.5} />
+      </mesh>
+      {/* Pillar */}
+      <mesh castShadow position={[0, 1.14, 0]}>
+        <boxGeometry args={[0.26, 2.1, 0.26]} />
+        <meshStandardMaterial color="#1a142c" />
+      </mesh>
+      {/* Bezel frame */}
+      <mesh castShadow position={[0, 2.4, 0]}>
+        <boxGeometry args={[2.5, 1.45, 0.16]} />
+        <meshStandardMaterial color="#120e20" roughness={0.4} />
+      </mesh>
+      {/* Screen */}
+      <mesh position={[0, 2.4, 0.09]}>
+        <planeGeometry args={[2.36, 1.32]} />
+        <meshBasicMaterial map={texture} />
+      </mesh>
+      {/* Neon Top Accent */}
+      <mesh position={[0, 3.14, 0]}>
+        <boxGeometry args={[2.5, 0.06, 0.18]} />
+        <meshStandardMaterial
+          color={district.color}
+          emissive={blackout ? '#000000' : district.color}
+          emissiveIntensity={blackout ? 0 : 0.6}
+        />
+      </mesh>
+      {/* Floating Hologram Diamond */}
+      <mesh ref={crystalRef} position={[0, 3.35, 0]}>
+        <octahedronGeometry args={[0.25, 0]} />
+        <meshStandardMaterial
+          color={district.color}
+          emissive={blackout ? '#000000' : district.color}
+          emissiveIntensity={blackout ? 0 : 0.8}
+        />
+      </mesh>
+      {!blackout && <pointLight color={district.color} intensity={0.4} distance={4.5} position={[0, 2.4, 0.4]} />}
+    </group>
+  );
+}
+
+function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, timePhase, cityEvent }) {
   const night = timePhase === 'night';
   const blackout = cityEvent === 'blackout';
   return (
@@ -417,6 +575,22 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, timePhase, cityEven
       </mesh>
       <FarcasterGltfBeacon blackout={blackout} />
       <TransitPod night={night} blackout={blackout} />
+      {DISTRICT_KIOSKS.map(({ districtId, pos, rotY }) => {
+        const district = DISTRICTS[districtId];
+        const cast = DISTRICT_AMBIENT_CASTS[districtId];
+        if (!district) return null;
+        return (
+          <DistrictKiosk
+            key={districtId}
+            district={district}
+            cast={cast}
+            pos={pos}
+            rotY={rotY}
+            onOpenChannel={onOpenChannel}
+            blackout={blackout}
+          />
+        );
+      })}
       {BUILDINGS.map((item, i) => (
         <Building key={i} item={item} index={i} night={night} blackout={blackout} />
       ))}
@@ -697,7 +871,7 @@ function Home({ items = [], tier = 'studio', onUseFurniture }) {
   );
 }
 
-function AvatarName({ name, you, bubble, career }) {
+function AvatarName({ name, you, bubble, career, powerBadge }) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 440;
@@ -728,13 +902,13 @@ function AvatarName({ name, you, bubble, career }) {
     ctx.font = 'bold 30px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const badge = career === 'mogul' ? '👑 ' : you ? '★ ' : '';
+    const badge = powerBadge ? '🟣 ' : career === 'mogul' ? '👑 ' : you ? '★ ' : '';
     ctx.fillText(badge + name.slice(0, 18), 220, yOffset + 37, 360);
 
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
     return result;
-  }, [name, you, bubble, career]);
+  }, [name, you, bubble, career, powerBadge]);
 
   useEffect(() => () => texture.dispose(), [texture]);
 
@@ -771,7 +945,7 @@ function Avatar({ p, you, emote, onSelect }) {
         if (!you) onSelect(p);
       }}
     >
-      <AvatarName name={p.name || 'Player'} you={you} bubble={p.bubble} career={p.career} />
+      <AvatarName name={p.name || 'Player'} you={you} bubble={p.bubble} career={p.career} powerBadge={!!p.powerBadge} />
       <AvatarFigure
         avatar={p.avatar}
         emote={emote}
@@ -779,6 +953,18 @@ function Avatar({ p, you, emote, onSelect }) {
         shielded={!!p.shielded}
         dashing={!!p.dashing}
       />
+      {p.powerBadge && (
+        <group position={[0, 2.18, 0]}>
+          <mesh rotation={[-Math.PI / 6, 0, 0]}>
+            <torusGeometry args={[0.26, 0.04, 12, 32]} />
+            <meshStandardMaterial color="#8a63d2" emissive="#8a63d2" emissiveIntensity={0.85} roughness={0.2} metalness={0.7} />
+          </mesh>
+          <mesh position={[0, 0.16, 0]}>
+            <octahedronGeometry args={[0.09, 0]} />
+            <meshStandardMaterial color="#c084fc" emissive="#c084fc" emissiveIntensity={0.9} />
+          </mesh>
+        </group>
+      )}
       {you && (
         <mesh position={[0, 2.3, 0]}>
           <octahedronGeometry args={[0.2]} />
@@ -883,7 +1069,7 @@ function CameraRig({ players, selfId, mode = 'orbit' }) {
   return null;
 }
 
-function MinimapRadar({ kind, me, players, npcs, hotspots, powerup, onSelectHotspot }) {
+function MinimapRadar({ kind, me, players, npcs, hotspots, powerup, activeDistrict, onSelectHotspot }) {
   const bound = kind === 'arena' ? 14 : kind === 'home' ? 10 : 20;
   const toPct = (val) => Math.max(6, Math.min(94, 50 + (val / bound) * 42));
 
@@ -941,8 +1127,11 @@ function MinimapRadar({ kind, me, players, npcs, hotspots, powerup, onSelectHots
           title="You"
         />
       )}
-      <span className="minimap-label">
-        <Compass size={11} /> {kind.toUpperCase()}
+      <span
+        className="minimap-label"
+        style={kind === 'plaza' && activeDistrict ? { color: activeDistrict.color } : undefined}
+      >
+        <Compass size={11} /> {kind === 'plaza' && activeDistrict ? activeDistrict.pill.toUpperCase() : kind.toUpperCase()}
       </span>
     </div>
   );
@@ -1001,6 +1190,172 @@ function VirtualJoystick({ touchRef }) {
   );
 }
 
+// --- Milestone 2: 3D Floating Coin Animation & Particle FX ---
+
+function FloatingCoin({ offsetAngle, radius, initialY, rotSpeed, progress, color }) {
+  const meshRef = useRef();
+
+  const easeOut = 1 - Math.pow(1 - progress, 2);
+  const currentY = initialY + easeOut * 1.85;
+
+  const currentRadius = radius * (1 + progress * 0.75);
+  const currentX = Math.cos(offsetAngle) * currentRadius;
+  const currentZ = Math.sin(offsetAngle) * currentRadius;
+
+  const opacity = progress < 0.65 ? 1.0 : Math.max(0, 1.0 - (progress - 0.65) / 0.35);
+
+  const scale =
+    progress < 0.1
+      ? Math.max(0.1, progress / 0.1)
+      : progress > 0.8
+        ? Math.max(0.2, ((1.0 - progress) / 0.2) * 0.4 + 0.6)
+        : 1.0;
+
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+    meshRef.current.rotation.x += delta * rotSpeed.x;
+    meshRef.current.rotation.y += delta * rotSpeed.y;
+    meshRef.current.rotation.z += delta * rotSpeed.z;
+  });
+
+  return (
+    <group position={[currentX, currentY, currentZ]} scale={scale}>
+      <mesh ref={meshRef}>
+        <cylinderGeometry args={[0.18, 0.18, 0.04, 16]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.3}
+          metalness={0.88}
+          roughness={0.18}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function TipValueBillboard({ amount, currency, progress }) {
+  const texture = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 360;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = 'rgba(24, 18, 38, 0.88)';
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(8, 8, 344, 80, 40);
+    } else {
+      ctx.rect(8, 8, 344, 80);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const currTag = (currency || 'degen').toUpperCase();
+    ctx.fillText(`+${amount} ₡${currTag}`, 180, 48);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [amount, currency]);
+
+  useEffect(() => () => texture?.dispose(), [texture]);
+
+  if (!texture) return null;
+
+  const y = 2.4 + progress * 1.5;
+  const opacity = progress < 0.65 ? 1.0 : Math.max(0, 1.0 - (progress - 0.65) / 0.35);
+
+  return (
+    <sprite position={[0, y, 0]} scale={[2.2, 0.6, 1]}>
+      <spriteMaterial map={texture} transparent opacity={opacity} depthTest={false} depthWrite={false} />
+    </sprite>
+  );
+}
+
+function TipBurstInstance({ burst, onComplete }) {
+  const [progress, setProgress] = useState(0);
+  const startTime = useRef(burst.createdAt || Date.now());
+  const DURATION_MS = 1800;
+
+  const coins = useMemo(() => {
+    const count = burst.amount >= 100 ? 12 : burst.amount >= 50 ? 9 : 6;
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      arr.push({
+        id: i,
+        offsetAngle: angle,
+        radius: 0.18 + Math.random() * 0.35,
+        initialY: 1.9 + Math.random() * 0.3,
+        rotSpeed: {
+          x: 4 + Math.random() * 6,
+          y: 7 + Math.random() * 8,
+          z: 2 + Math.random() * 4
+        }
+      });
+    }
+    return arr;
+  }, [burst.amount]);
+
+  const coinColor = useMemo(() => {
+    const c = (burst.currency || 'degen').toLowerCase();
+    if (c === 'moxie') return '#10b981';
+    if (c === 'warps') return '#8a63d2';
+    if (c === 'creds') return '#f59e0b';
+    return '#ffd700'; // Degen gold
+  }, [burst.currency]);
+
+  useFrame(() => {
+    const elapsed = Date.now() - startTime.current;
+    const p = Math.min(1, elapsed / DURATION_MS);
+    setProgress(p);
+    if (p >= 1 && onComplete) {
+      onComplete(burst.id);
+    }
+  });
+
+  if (progress >= 1) return null;
+
+  return (
+    <group position={[burst.x, 0, burst.z]}>
+      {coins.map((c) => (
+        <FloatingCoin
+          key={c.id}
+          offsetAngle={c.offsetAngle}
+          radius={c.radius}
+          initialY={c.initialY}
+          rotSpeed={c.rotSpeed}
+          progress={progress}
+          color={coinColor}
+        />
+      ))}
+      <TipValueBillboard amount={burst.amount} currency={burst.currency} progress={progress} />
+    </group>
+  );
+}
+
+export function TipBurstFX({ bursts = [], onComplete }) {
+  if (!bursts || bursts.length === 0) return null;
+  return (
+    <group name="tip-burst-fx">
+      {bursts.map((b) => (
+        <TipBurstInstance key={b.id} burst={b} onComplete={onComplete} />
+      ))}
+    </group>
+  );
+}
+
 function Scene({
   players,
   npcs = [],
@@ -1009,10 +1364,13 @@ function Scene({
   homeItems,
   homeTier,
   effects,
+  tipBursts = [],
+  onTipBurstComplete,
   onSelect,
   hotspots,
   activeHotspotId,
   onSelectHotspot,
+  onOpenChannel,
   timePhase,
   cityEvent,
   powerup,
@@ -1058,6 +1416,7 @@ function Scene({
           hotspots={hotspots}
           activeHotspotId={activeHotspotId}
           onSelectHotspot={onSelectHotspot}
+          onOpenChannel={onOpenChannel}
           timePhase={timePhase}
           cityEvent={cityEvent}
         />
@@ -1068,6 +1427,7 @@ function Scene({
       {npcs.map((n) => (
         <Avatar key={n.id} p={n} you={false} emote={null} onSelect={onSelect} />
       ))}
+      <TipBurstFX bursts={tipBursts} onComplete={onTipBurstComplete} />
       <CameraRig players={players} selfId={selfId} mode={cameraMode} />
     </>
   );
@@ -1119,6 +1479,50 @@ export default function WorldView({
   const [phoneApp, setPhoneApp] = useState('jobs');
   const [radioOn, setRadioOn] = useState(soundEngine.radioPlaying);
   const [banner, setBanner] = useState('');
+  const [tipBursts, setTipBursts] = useState([]);
+  const [showTipMenu, setShowTipMenu] = useState(false);
+  const [tipBusy, setTipBusy] = useState(false);
+  const [pendingTipAmount, setPendingTipAmount] = useState(null);
+
+  useEffect(() => {
+    setShowTipMenu(false);
+    setTipBusy(false);
+    setPendingTipAmount(null);
+  }, [selected?.id]);
+
+  const triggerTipFx = (tipData) => {
+    if (!tipData) return;
+    if (soundEngine.playTipCoin) soundEngine.playTipCoin(tipData.amount || 50);
+    else soundEngine.playCash();
+
+    const targetPlayer = (playersRef.current || []).find(
+      (p) => Number(p.fid) === Number(tipData.toFid) || p.id === tipData.targetId || p.name === tipData.toName
+    );
+    const mePlayer = (playersRef.current || []).find((p) => p.id === selfId);
+    const targetX = targetPlayer ? targetPlayer.x : (mePlayer?.x ?? 0);
+    const targetZ = targetPlayer ? targetPlayer.z : (mePlayer?.z ?? 0);
+
+    const burstId = 'tip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    setTipBursts((prev) => [
+      ...prev.slice(-9),
+      {
+        id: burstId,
+        x: targetX,
+        z: targetZ,
+        amount: tipData.amount || 50,
+        currency: tipData.currency || 'degen',
+        createdAt: Date.now()
+      }
+    ]);
+  };
+
+  useEffect(() => {
+    const onLocalTip = (e) => {
+      if (e.detail) triggerTipFx(e.detail);
+    };
+    window.addEventListener('simcaster:tip', onLocalTip);
+    return () => window.removeEventListener('simcaster:tip', onLocalTip);
+  }, [selfId]);
 
   useEffect(() => {
     return soundEngine.subscribe((s) => setRadioOn(s.radioPlaying));
@@ -1136,6 +1540,72 @@ export default function WorldView({
     setBanner(msg);
     setTimeout(() => setBanner((prev) => (prev === msg ? '' : prev)), 4500);
   };
+
+  async function handleTipAvatar(amount) {
+    if (!selected || tipBusy) return;
+    const target = [...players, ...npcs].find((p) => p.id === selected.id);
+    if (!target) return;
+    try {
+      setTipBusy(true);
+      setPendingTipAmount(amount);
+
+      const response = await fetch('/api/tips', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toFid: target.fid,
+          amount,
+          currency: 'degen'
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send tip');
+      }
+
+      if (soundEngine.playTipCoin) soundEngine.playTipCoin(amount);
+      else soundEngine.playCash();
+
+      triggerTipFx({
+        toFid: target.fid,
+        toName: target.name,
+        targetId: target.id,
+        amount,
+        currency: 'degen'
+      });
+
+      if (onUserUpdate && data.tip) {
+        onUserUpdate((prev) => ({
+          ...prev,
+          creds: data.tip.fromBalance ?? ((prev?.creds ?? 250) - amount),
+          needs: {
+            ...(prev?.needs || {}),
+            clout: Math.min(100, (prev?.needs?.clout || 0) + (data.tip.cloutAwarded || 5)),
+            vibe: Math.min(100, (prev?.needs?.vibe || 0) + (data.tip.vibeAwarded || 5))
+          }
+        }));
+      }
+
+      showBanner(`🪙 Tipped ${target.name} ${amount} ₡DEGEN! (+${data.tip?.cloutAwarded || 5} Clout, +${data.tip?.vibeAwarded || 5} Vibe)`);
+      setMessages((prev) => [
+        ...prev.slice(-36),
+        {
+          type: 'notice',
+          text: `🪙 You tipped ${target.name} ${amount} ₡DEGEN`
+        }
+      ]);
+
+      setShowTipMenu(false);
+      setSelected(null);
+    } catch (err) {
+      showBanner(`⚠️ ${err.message}`);
+    } finally {
+      setTipBusy(false);
+      setPendingTipAmount(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -1299,6 +1769,35 @@ export default function WorldView({
           ]);
         }
         if (packet.event === 'notice') setMessages((prev) => [...prev.slice(-36), { ...d, type: 'notice' }]);
+        if (packet.event === 'tip' || packet.type === 'tip') {
+          const tipInfo = packet.data || packet;
+          triggerTipFx(tipInfo);
+          const isRecipient = Number(tipInfo.toFid) === Number(user?.fid);
+          const isSender = Number(tipInfo.fromFid) === Number(user?.fid);
+          if (isRecipient) {
+            showBanner(`🎉 ${tipInfo.fromName || 'Someone'} tipped you ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}! (+5 Clout, +5 Vibe)`);
+            if (onUserUpdate) {
+              onUserUpdate((prev) => ({
+                ...prev,
+                creds: tipInfo.toBalance !== undefined ? tipInfo.toBalance : ((prev?.creds ?? 250) + Number(tipInfo.amount)),
+                needs: {
+                  ...(prev?.needs || {}),
+                  clout: Math.min(100, (prev?.needs?.clout || 0) + 5),
+                  vibe: Math.min(100, (prev?.needs?.vibe || 0) + 5)
+                }
+              }));
+            }
+          } else if (!isSender) {
+            showBanner(`🪙 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}`);
+          }
+          setMessages((prev) => [
+            ...prev.slice(-36),
+            {
+              type: 'notice',
+              text: `🪙 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}`
+            }
+          ]);
+        }
         if (packet.event === 'match-end') {
           soundEngine.playPromotion();
           setEnd(d);
@@ -1358,6 +1857,47 @@ export default function WorldView({
   const me = players.find((p) => p.id === selfId);
   const myCreds = me?.creds ?? user?.creds ?? 250;
   const myNeeds = me?.needs || user?.needs || { energy: 85, hunger: 80, vibe: 75, clout: 10 };
+
+  const activeDistrict = useMemo(() => {
+    if (kind !== 'plaza' || !me || typeof me.x !== 'number' || typeof me.z !== 'number') {
+      return DISTRICTS.farcaster;
+    }
+    return getPlazaDistrict(me.x, me.z);
+  }, [kind, me?.x, me?.z]);
+
+  const [zoneBanner, setZoneBanner] = useState(null);
+  const lastZoneChangeTime = useRef(0);
+  const lastReportedDistrict = useRef(null);
+
+  useEffect(() => {
+    if (kind !== 'plaza' || !me || typeof me.x !== 'number' || typeof me.z !== 'number') return;
+    const currentDistrict = getPlazaDistrict(me.x, me.z);
+
+    if (lastReportedDistrict.current === null) {
+      lastReportedDistrict.current = currentDistrict.id;
+      return;
+    }
+
+    if (currentDistrict.id !== lastReportedDistrict.current) {
+      const now = Date.now();
+      lastReportedDistrict.current = currentDistrict.id;
+      if (now - lastZoneChangeTime.current > 1800) {
+        lastZoneChangeTime.current = now;
+        setZoneBanner(currentDistrict);
+        soundEngine.playTone({ freq: 520, endFreq: 780, duration: 0.12, gain: 0.08 });
+        const timer = setTimeout(() => {
+          setZoneBanner((prev) => (prev?.id === currentDistrict.id ? null : prev));
+        }, 3200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [kind, me?.x, me?.z]);
+
+  function handleOpenKioskChannel(districtId) {
+    soundEngine.playClick();
+    setPhoneApp('feed');
+    setPhoneOpen(true);
+  }
 
   const nearestHotspot = useMemo(() => {
     if (kind !== 'plaza' || !me) return null;
@@ -1471,10 +2011,13 @@ export default function WorldView({
               homeItems={liveHomeItems}
               homeTier={liveHomeTier}
               effects={effects}
+              tipBursts={tipBursts}
+              onTipBurstComplete={(id) => setTipBursts((prev) => prev.filter((b) => b.id !== id))}
               onSelect={setSelected}
               hotspots={hotspots}
               activeHotspotId={activeHotspot?.id}
               onSelectHotspot={setSelectedHotspot}
+              onOpenChannel={handleOpenKioskChannel}
               timePhase={timePhase}
               cityEvent={cityEvent}
               powerup={powerup}
@@ -1501,15 +2044,44 @@ export default function WorldView({
           <button className="stage-back" onClick={onBack}>
             <ArrowLeft size={16} /> Back
           </button>
-          <div className="location-pill">
-            <span className="live-pulse" />{' '}
-            {kind === 'arena'
-              ? 'LASER TAG ARENA'
-              : kind === 'home'
-                ? ownerFid && Number(ownerFid) !== Number(user.fid)
-                  ? 'FRIEND’S APARTMENT'
-                  : `MY ${liveHomeTier.toUpperCase()} PAD`
-                : 'SIMCASTER METROPOLIS PLAZA'}
+          <div
+            className={`location-pill ${kind === 'plaza' ? 'district-channel-pill' : ''}`}
+            data-testid="hud-location-pill"
+            data-district={kind === 'plaza' ? activeDistrict?.id : undefined}
+            data-channel={kind === 'plaza' ? activeDistrict?.channel : undefined}
+            title={kind === 'plaza' ? `${activeDistrict?.name} (${activeDistrict?.pill}) — ${activeDistrict?.tagline}` : undefined}
+          >
+            <span
+              className="live-pulse"
+              style={
+                kind === 'plaza' && activeDistrict?.color
+                  ? {
+                      backgroundColor: activeDistrict.color,
+                      boxShadow: `0 0 0 4px ${activeDistrict.color}38`
+                    }
+                  : undefined
+              }
+            />
+            {kind === 'arena' ? (
+              'LASER TAG ARENA'
+            ) : kind === 'home' ? (
+              ownerFid && Number(ownerFid) !== Number(user.fid) ? (
+                'FRIEND’S APARTMENT'
+              ) : (
+                `MY ${liveHomeTier.toUpperCase()} PAD`
+              )
+            ) : (
+              <>
+                <span
+                  className="channel-tag"
+                  style={{ color: activeDistrict?.color || '#8a63d2', fontWeight: 900 }}
+                >
+                  {activeDistrict?.pill || '/farcaster'}
+                </span>
+                <span className="district-sep" style={{ opacity: 0.45, margin: '0 2px' }}>·</span>
+                <span className="district-name" style={{ color: '#39324f', fontWeight: 800 }}>{activeDistrict?.name || 'Main Plaza'}</span>
+              </>
+            )}
           </div>
 
           <div className="world-vitals-bar" aria-label="Character needs and economy">
@@ -1557,6 +2129,52 @@ export default function WorldView({
           )}
         </div>
 
+        {zoneBanner && (
+          <div
+            className="zone-transition-banner"
+            role="status"
+            data-testid="zone-transition-banner"
+            style={{
+              position: 'absolute',
+              top: 76,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9,
+              background: 'rgba(26, 20, 44, 0.94)',
+              backdropFilter: 'blur(10px)',
+              color: '#fff',
+              padding: '8px 18px 8px 10px',
+              borderRadius: 99,
+              fontSize: 12,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              border: `1.5px solid ${zoneBanner.color}88`,
+              boxShadow: `0 8px 30px ${zoneBanner.color}35`,
+              pointerEvents: 'none'
+            }}
+          >
+            <span
+              className="zone-banner-pill"
+              style={{
+                backgroundColor: zoneBanner.color,
+                color: '#fff',
+                fontWeight: 900,
+                fontSize: 10,
+                padding: '4px 10px',
+                borderRadius: 99,
+                letterSpacing: 0.6
+              }}
+            >
+              {zoneBanner.pill}
+            </span>
+            <span className="zone-banner-title" style={{ color: '#ded7ee', fontSize: 11 }}>
+              Entering <strong style={{ color: '#ffffff', fontWeight: 900 }}>{zoneBanner.name}</strong>
+            </span>
+          </div>
+        )}
+
         <MinimapRadar
           kind={kind}
           me={me}
@@ -1564,6 +2182,7 @@ export default function WorldView({
           npcs={npcs}
           hotspots={hotspots}
           powerup={powerup}
+          activeDistrict={activeDistrict}
           onSelectHotspot={setSelectedHotspot}
         />
 
@@ -1699,66 +2318,110 @@ export default function WorldView({
 
         {activeTarget && activeTarget.id !== selfId && (
           <div className="interact-panel">
-            <div>
-              <b>{activeTarget.name}</b>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <b>{activeTarget.name}</b>
+                {activeTarget.powerBadge && (
+                  <span className="power-badge-indicator" style={{ color: '#8a63d2', fontSize: 11, fontWeight: 800, background: 'rgba(138, 99, 210, 0.18)', padding: '2px 7px', borderRadius: 99 }}>
+                    🟣 Power Badge
+                  </span>
+                )}
+              </div>
               <button onClick={() => setSelected(null)} aria-label="Close interaction menu">
                 ×
               </button>
             </div>
             <p>{closeEnough ? 'You’re close enough to interact!' : 'Move closer to interact (' + distanceToTarget.toFixed(1) + 'm away).'}</p>
-            <div className="interact-actions">
-              <button
-                disabled={!closeEnough}
-                onClick={() => {
-                  send('emote', { name: 'wave', targetId: activeTarget.id });
-                  setSelected(null);
-                }}
-              >
-                👋 Wave
-              </button>
-              <button
-                disabled={!closeEnough}
-                onClick={() => {
-                  send('emote', { name: 'heart', targetId: activeTarget.id });
-                  setSelected(null);
-                }}
-              >
-                💜 Send love
-              </button>
-              <button
-                disabled={!closeEnough}
-                onClick={() => {
-                  send('emote', { name: 'dance', targetId: activeTarget.id });
-                  setSelected(null);
-                }}
-              >
-                💃 Dance
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/friends/requests', {
-                      method: 'POST',
-                      credentials: 'same-origin',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ fid: activeTarget.fid })
-                    });
-                    if (!response.ok) throw new Error((await response.json()).error || 'Friend request failed');
-                    setMessages((prev) => [...prev.slice(-36), { type: 'notice', text: 'Friend request sent to ' + activeTarget.name }]);
-                  } catch (e) {
-                    setMessages((prev) => [...prev.slice(-36), { type: 'notice', text: e.message }]);
-                  }
-                  setSelected(null);
-                }}
-              >
-                ➕ Add friend
-              </button>
-              {activeTarget.fid < 900000000 && (
-                <a href={'https://warpcast.com/~/profiles/' + activeTarget.fid} target="_blank" rel="noopener noreferrer">
-                  View Farcaster ↗
-                </a>
-              )}
-            </div>
+
+            {showTipMenu ? (
+              <div className="tip-preset-row">
+                <div className="tip-preset-row-head">
+                  <span>Select tip amount:</span>
+                  <button type="button" onClick={() => setShowTipMenu(false)} aria-label="Back to actions">
+                    Back
+                  </button>
+                </div>
+                <div className="tip-presets">
+                  {[10, 50, 100].map((amt) => {
+                    const canAfford = myCreds >= amt;
+                    const isThisBusy = tipBusy && pendingTipAmount === amt;
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        className="tip-preset-btn"
+                        disabled={tipBusy || !canAfford || !closeEnough}
+                        onClick={() => handleTipAvatar(amt)}
+                        title={!canAfford ? 'Insufficient balance' : `Tip ${amt} ₡DEGEN`}
+                      >
+                        {isThisBusy ? '...' : `${amt} ₡DEGEN`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="interact-actions">
+                <button
+                  disabled={!closeEnough}
+                  onClick={() => {
+                    send('emote', { name: 'wave', targetId: activeTarget.id });
+                    setSelected(null);
+                  }}
+                >
+                  👋 Wave
+                </button>
+                <button
+                  disabled={!closeEnough}
+                  onClick={() => {
+                    send('emote', { name: 'heart', targetId: activeTarget.id });
+                    setSelected(null);
+                  }}
+                >
+                  💜 Send love
+                </button>
+                <button
+                  disabled={!closeEnough}
+                  onClick={() => {
+                    send('emote', { name: 'dance', targetId: activeTarget.id });
+                    setSelected(null);
+                  }}
+                >
+                  💃 Dance
+                </button>
+                <button
+                  disabled={!closeEnough || tipBusy}
+                  className="interact-tip-btn"
+                  onClick={() => setShowTipMenu(true)}
+                >
+                  🪙 Tip
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/friends/requests', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fid: activeTarget.fid })
+                      });
+                      if (!response.ok) throw new Error((await response.json()).error || 'Friend request failed');
+                      setMessages((prev) => [...prev.slice(-36), { type: 'notice', text: 'Friend request sent to ' + activeTarget.name }]);
+                    } catch (e) {
+                      setMessages((prev) => [...prev.slice(-36), { type: 'notice', text: e.message }]);
+                    }
+                    setSelected(null);
+                  }}
+                >
+                  ➕ Add friend
+                </button>
+                {activeTarget.fid < 900000000 && (
+                  <a href={'https://warpcast.com/~/profiles/' + activeTarget.fid} target="_blank" rel="noopener noreferrer">
+                    View Farcaster ↗
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1863,6 +2526,8 @@ export default function WorldView({
         onVisitHome={onVisitHome}
         onGoHome={onGoHome}
         initialApp={phoneApp}
+        activeDistrict={activeDistrict}
+        activeChannel={activeDistrict?.id || 'farcaster'}
       />
     </div>
   );

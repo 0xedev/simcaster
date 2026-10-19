@@ -93,6 +93,21 @@ class SoundEngine {
     this.playTone({ freq: 1318.51, type: 'triangle', duration: 0.22, gain: 0.12, delay: 0.075 });
   }
 
+  playTipCoin(amount = 50) {
+    if (this.sfxMuted) return;
+    const arpeggio = [
+      { freq: 1318.51, type: 'sine', duration: 0.09, gain: 0.10, delay: 0 },
+      { freq: 1661.22, type: 'sine', duration: 0.11, gain: 0.11, delay: 0.048 },
+      { freq: 1975.53, type: 'triangle', duration: 0.15, gain: 0.12, delay: 0.096 },
+      { freq: 2637.02, type: 'triangle', duration: 0.32, gain: 0.13, delay: 0.144 }
+    ];
+    arpeggio.push({ freq: 3951.07, type: 'sine', duration: 0.25, gain: 0.04, delay: 0.15 });
+    if (amount >= 100) {
+      arpeggio.push({ freq: 3322.44, type: 'triangle', duration: 0.40, gain: 0.08, delay: 0.19 });
+    }
+    arpeggio.forEach((note) => this.playTone(note));
+  }
+
   playPromotion() {
     const chord = [523.25, 659.25, 783.99, 987.77, 1174.66];
     chord.forEach((f, idx) => {

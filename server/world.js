@@ -130,9 +130,11 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
     const fresh = store.findUser(p.fid);
     if (fresh) {
       p.creds = fresh.creds;
+      p.currencies = { ...fresh.currencies };
       p.needs = { ...fresh.needs };
       p.career = fresh.career;
       p.avatar = fresh.avatar;
+      p.powerBadge = Boolean(fresh.powerBadge);
     }
   }
 
@@ -195,6 +197,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
       creds: account.creds ?? 250,
       needs: account.needs ? { ...account.needs } : { energy: 85, hunger: 80, vibe: 75, clout: 10 },
       career: account.career || 'newcomer',
+      powerBadge: Boolean(account.powerBadge),
       x: spawnX,
       z: spawnZ,
       heading: 0,
@@ -354,6 +357,54 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
             needs: p.needs,
             career: p.career,
             quests: result.user?.quests
+          });
+        } catch (err) {
+          send(ws, 'activity', { ok: false, error: err.message });
+        }
+      } else if (packet.event === 'tip') {
+        const targetFid = Number(packet.data?.toFid || packet.data?.targetFid);
+        const amount = Number(packet.data?.amount);
+        const currency = packet.data?.currency || 'degen';
+        const castHash = packet.data?.castHash || null;
+
+        if (!Number.isSafeInteger(targetFid) || targetFid === Number(p.fid) || !Number.isSafeInteger(amount) || amount <= 0) {
+          send(ws, 'activity', { ok: false, error: 'Invalid tip parameters or self-tipping attempt' });
+          return;
+        }
+
+        try {
+          const result = store.transferTip(p.fid, targetFid, amount, currency, { castHash });
+          syncPlayerAccount(p);
+
+          for (const r of instances.values()) {
+            for (const targetPlayer of r.players.values()) {
+              if (Number(targetPlayer.fid) === targetFid) syncPlayerAccount(targetPlayer);
+            }
+          }
+
+          const tipPayload = {
+            type: 'tip',
+            fromFid: p.fid,
+            fromName: p.name,
+            toFid: result.toFid,
+            toName: result.toName,
+            amount: result.amount,
+            currency: result.currency,
+            castHash: result.castHash
+          };
+
+          broadcast(room, 'tip', tipPayload);
+          broadcast(room, 'notice', {
+            text: `🪙 ${p.name} tipped ${result.toName} ${result.amount} ₡${result.currency.toUpperCase()}!`
+          });
+
+          send(ws, 'activity', {
+            ok: true,
+            action: `Tipped ${result.toName} ${result.amount} ${result.currency.toUpperCase()}`,
+            creds: p.creds,
+            currencies: p.currencies,
+            needs: p.needs,
+            promoted: null
           });
         } catch (err) {
           send(ws, 'activity', { ok: false, error: err.message });
@@ -562,6 +613,29 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
       if (room) broadcast(room, 'home-updated', data);
       else if (clusterBus) {
         clusterBus.publish('room:event', { roomKey: 'home:' + owner, roomType: 'home', event: 'home-updated', data });
+      }
+    },
+    broadcastTip: (tipData) => {
+      const payload = {
+        type: 'tip',
+        fromFid: Number(tipData.fromFid),
+        fromName: tipData.fromName,
+        toFid: Number(tipData.toFid),
+        toName: tipData.toName,
+        amount: Number(tipData.amount),
+        currency: tipData.currency,
+        castHash: tipData.castHash || null
+      };
+      for (const room of instances.values()) {
+        broadcast(room, 'tip', payload, { relay: false });
+      }
+      if (clusterBus) {
+        clusterBus.publish('room:event', {
+          roomKey: 'global',
+          roomType: 'plaza',
+          event: 'tip',
+          data: payload
+        });
       }
     },
     syncUser: (fid) => {

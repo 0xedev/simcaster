@@ -7,6 +7,7 @@ const WorldView = React.lazy(() => import('./WorldView.jsx'));
 const SimDiorama = React.lazy(() => import('./SimDiorama.jsx'));
 const CastPhone = React.lazy(() => import('./CastPhone.jsx'));
 import './styles.css';
+import { soundEngine } from './sound.js';
 
 async function api(url, options={}) {
   const res=await fetch('/api'+url,{credentials:'same-origin',
@@ -215,12 +216,73 @@ function Dashboard({user,onTab,stats,config,onOpenPhone}) {
     <div className="home-bottom"><div className="community-strip"><span className="community-symbol">❋</span><div><h3>Built around real people.</h3><p>Simcaster connects to Farcaster — one identity across your feed and your world.</p></div><button onClick={()=>onTab('feed')}>Open social feed <ArrowRight size={17}/></button></div></div>
   </div>;
 }
-function SocialFeed({user,notify}) {
+function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
   const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
   const [fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
   const [composeText,setComposeText]=useState(''),[replyTarget,setReplyTarget]=useState(null),[quoteTarget,setQuoteTarget]=useState(null),[busy,setBusy]=useState(false);
   const [conversation,setConversation]=useState(null),[threadLoading,setThreadLoading]=useState(false);
   const [reacting,setReacting]=useState({}),[localReactions,setLocalReactions]=useState({});
+  const [tipTargetHash, setTipTargetHash] = useState(null);
+  const [tipLoading, setTipLoading] = useState(false);
+  const [pendingTipHash, setPendingTipHash] = useState(null);
+  const [pendingTipAmount, setPendingTipAmount] = useState(null);
+
+  async function tipCastInFeed(cast, amount) {
+    if (tipLoading) return;
+    try {
+      setTipLoading(true);
+      setPendingTipHash(cast.hash);
+      setPendingTipAmount(amount);
+
+      const res = await api('/tips', {
+        method: 'POST',
+        body: JSON.stringify({
+          toFid: cast.author?.fid,
+          amount,
+          currency: 'degen',
+          castHash: cast.hash
+        })
+      });
+
+      if (soundEngine.playTipCoin) soundEngine.playTipCoin(amount);
+      else soundEngine.playCash();
+
+      if (res.user && onUserUpdate) {
+        onUserUpdate(res.user);
+      } else if (res.tip && onUserUpdate) {
+        onUserUpdate((prev) => ({
+          ...prev,
+          creds: res.tip.fromBalance ?? ((prev?.creds ?? 250) - amount),
+          needs: {
+            ...(prev?.needs || {}),
+            clout: Math.min(100, (prev?.needs?.clout || 0) + (res.tip.cloutAwarded || 5)),
+            vibe: Math.min(100, (prev?.needs?.vibe || 0) + (res.tip.vibeAwarded || 5))
+          }
+        }));
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('simcaster:tip', {
+          detail: {
+            toFid: cast.author?.fid,
+            toName: cast.author?.display_name || cast.author?.username,
+            amount,
+            currency: 'degen',
+            castHash: cast.hash
+          }
+        })
+      );
+
+      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} ₡DEGEN (+5 Clout, +5 Vibe)!`);
+      setTipTargetHash(null);
+    } catch (err) {
+      notify(err.message || 'Tip failed');
+    } finally {
+      setTipLoading(false);
+      setPendingTipHash(null);
+      setPendingTipAmount(null);
+    }
+  }
   async function load(nextMode=mode,append=false,nextCursor=null){
     setLoading(true);setError('');
     try{
@@ -330,7 +392,39 @@ function SocialFeed({user,notify}) {
             <button onClick={()=>startQuote(c)}><Pencil size={16}/> Quote</button>
             <button disabled={!!reacting[c.hash+'like']} className={liked?'reacted liked':''} onClick={()=>react(c,'like')}><Heart size={17} fill={liked?'currentColor':'none'}/> {likes} Like</button>
             <button onClick={()=>share(c)}><Share2 size={17}/> Copy</button>
+            {c.author?.fid && Number(c.author.fid) !== Number(user?.fid) && (
+              <button
+                className={`cast-tip-btn ${tipTargetHash === c.hash ? 'active' : ''}`}
+                onClick={() => setTipTargetHash(tipTargetHash === c.hash ? null : c.hash)}
+                title="Tip author ₡DEGEN"
+              >
+                🪙 Tip
+              </button>
+            )}
           </div>
+          {tipTargetHash === c.hash && (
+            <div className="cast-tip-panel" style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:'rgba(255,215,0,0.08)',borderRadius:8,margin:'6px 0',border:'1px solid rgba(255,215,0,0.2)'}}>
+              <span style={{fontSize:12,fontWeight:600,color:'#ffd700'}}>Tip @{c.author?.username || 'author'}:</span>
+              {[10, 50, 100].map(amt => (
+                <button
+                  key={amt}
+                  className="secondary-btn"
+                  style={{padding:'3px 8px',fontSize:12}}
+                  disabled={tipLoading && pendingTipHash === c.hash}
+                  onClick={() => tipCastInFeed(c, amt)}
+                >
+                  {tipLoading && pendingTipHash === c.hash && pendingTipAmount === amt ? '…' : `${amt} ₡DEGEN`}
+                </button>
+              ))}
+              <button
+                style={{background:'none',border:'none',color:'#888',cursor:'pointer',fontSize:14,marginLeft:'auto'}}
+                onClick={() => setTipTargetHash(null)}
+                aria-label="Close tip selector"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {replyTarget?.hash===c.hash&&<div className="thread-inline">
             <div className="thread-head"><strong>Conversation</strong><button onClick={()=>{setReplyTarget(null);setConversation(null);}} aria-label="Close conversation">×</button></div>
             {threadLoading?<span className="thread-status">Loading replies…</span>:
@@ -522,7 +616,7 @@ function App(){
       <div className="main-shell"><Topbar user={user} tab={tab} stats={stats} openMenu={()=>setMobileNav(true)} onTab={navigate} onOpenPhone={openPhone}/>
       {user.demo&&<div className="demo-strip"><span>◈</span> DEMO MODE — your identity is local and your social feed contains sample content. <span>Not a live Farcaster account.</span></div>}
       {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab} onOpenPhone={openPhone}/>:
-        tab==='feed'?<SocialFeed user={user} notify={notify} writeClientId={config.writeClientId}/>:
+        tab==='feed'?<SocialFeed user={user} onUserUpdate={setUser} notify={notify} writeClientId={config.writeClientId}/>:
         tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D plaza…</div>}><WorldView user={user} onUserUpdate={setUser} kind="plaza" onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} onUserUpdate={setUser} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:

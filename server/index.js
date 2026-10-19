@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createAppClient, viemConnector } from '@farcaster/auth-client';
 import { mnemonicToAccount } from 'viem/accounts';
 import QRCode from 'qrcode';
-import { Store, FURNITURE_CATALOG, HOME_TIERS, CITY_POLICIES } from './storage.js';
+import { Store, FURNITURE_CATALOG, HOME_TIERS, CITY_POLICIES, sampleFeed, normalizeCurrency, SUPPORTED_CURRENCIES } from './storage.js';
 import { PLAZA_HOTSPOTS, CAREERS, DAILY_QUESTS } from './rules.js';
 import { attachWorld } from './world.js';
 import { PostgresStoreAdapter, ClusterBus } from './cluster.js';
@@ -90,7 +90,7 @@ async function neynarMutation(method,route,body) {
   return result?JSON.parse(result):{ok:true};
 }
 const hexCastHashOk=hash=>typeof hash==='string' && /^0x[0-9a-fA-F]{40}$/.test(hash);
-const castHashOk=hash=>hexCastHashOk(hash) || (typeof hash==='string' && /^demo-\d+$/.test(hash));
+const castHashOk=hash=>hexCastHashOk(hash) || (typeof hash==='string' && /^demo-[\w-]+$/.test(hash));
 const signerUuidOk=value=>typeof value==='string' && /^[a-f0-9-]{36}$/i.test(value);
 async function approvedSignerFor(fid) {
   if (!process.env.NEYNAR_API_KEY) return null;
@@ -104,15 +104,11 @@ async function approvedSignerFor(fid) {
     return null;
   }
 }
-function sampleFeed() {
-  return [
-    {hash:'demo-1',author:{fid:1,display_name:'Maya Chen',username:'maya.world',pfp_url:''},
-      text:'Built my first little place in Simcaster today 🪴 Come say hi in the plaza!',timestamp:new Date(Date.now()-23*60000).toISOString(),reactions:{likes_count:42,recasts_count:6},replies:{count:9}},
-    {hash:'demo-2',author:{fid:2,display_name:'Theo Rivers',username:'theor',pfp_url:''},
-      text:'The arcade is officially open. Who’s up for a laser tag match? 🕹️',timestamp:new Date(Date.now()-2*3600000).toISOString(),reactions:{likes_count:28,recasts_count:4},replies:{count:12}},
-    {hash:'demo-3',author:{fid:3,display_name:'Ari Okafor',username:'ari',pfp_url:''},
-      text:'Less scrolling, more hanging out. That’s the internet I want to see. ✨',timestamp:new Date(Date.now()-5*3600000).toISOString(),reactions:{likes_count:67,recasts_count:15},replies:{count:18}}
-  ];
+function normalizeChannel(raw) {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().replace(/^\/+/, '').toLowerCase();
+  if (!cleaned || cleaned === 'all' || cleaned === 'global') return null;
+  return cleaned.slice(0, 64);
 }
 const throttleState=new Map();
 function throttle(group,max,windowMs) {
@@ -127,7 +123,7 @@ function throttle(group,max,windowMs) {
 }
 const limiterCleanup=setInterval(()=>{for(const [key,record] of throttleState)if(Date.now()-record.started>120000)throttleState.delete(key);},60000);
 limiterCleanup.unref();
-app.use('/api/auth',throttle('auth',45,60000));
+app.use('/api/auth',throttle('auth',process.env.NODE_ENV==='test'?500:200,60000));
 app.use('/api/feed',throttle('feed',60,60000));
 app.get('/api/health',(_,res)=>res.json({
   ok:true,
@@ -302,22 +298,62 @@ app.delete('/api/friends/:fid',requireAuth,(req,res)=>{
   if(!Number.isSafeInteger(fid)||fid<1)return fail(res,'Invalid fid');
   store.removeFriend(req.user.fid,fid);res.json({ok:true});
 });
-app.get('/api/feed',requireAuth,async(req,res)=>{
-  const mode=req.query.mode==='following'?'following':'trending';
-  if(!process.env.NEYNAR_API_KEY) {
-    return res.json({casts:store.decorateCasts(sampleFeed(),req.user.fid),sample:false,cursor:null});
+app.get('/api/feed', requireAuth, async (req, res) => {
+  const mode = req.query.mode === 'following' ? 'following' : 'trending';
+  const channel = normalizeChannel(req.query.channel);
+  if (!process.env.NEYNAR_API_KEY) {
+    const rawFeed = sampleFeed(channel);
+    return res.json({
+      casts: store.decorateCasts(rawFeed, req.user.fid, channel),
+      channel,
+      sample: false,
+      cursor: null,
+      feedFallback: false
+    });
   }
-  try{
-    const params={feed_type:'following',fid:req.user.fid,limit:20};
-    if(typeof req.query.cursor==='string') params.cursor=req.query.cursor.slice(0,500);
-    const data=await neynar('feed',params);
-    const upstream=data.casts || [];
-    const casts=req.query.cursor
-      ? upstream.map(c=>store.decorateCast(c,req.user.fid))
-      : store.decorateCasts(upstream,req.user.fid);
-    res.json({casts,cursor:data.next?.cursor || null,sample:false,feedFallback:mode==='trending'});
-  }catch{
-    res.json({casts:store.decorateCasts(sampleFeed(),req.user.fid),sample:false,cursor:null});
+  try {
+    let upstream = [];
+    let nextCursor = null;
+    if (channel) {
+      try {
+        const params = { channel_ids: channel, limit: 20 };
+        if (typeof req.query.cursor === 'string') params.cursor = req.query.cursor.slice(0, 500);
+        const data = await neynar('feed/channels', params);
+        upstream = data.casts || [];
+        nextCursor = data.next?.cursor || null;
+      } catch {
+        const params = { feed_type: 'filter', filter_type: 'channel_id', channel_id: channel, limit: 20 };
+        if (typeof req.query.cursor === 'string') params.cursor = req.query.cursor.slice(0, 500);
+        const data = await neynar('feed', params);
+        upstream = data.casts || [];
+        nextCursor = data.next?.cursor || null;
+      }
+    } else {
+      const params = { feed_type: 'following', fid: req.user.fid, limit: 20 };
+      if (typeof req.query.cursor === 'string') params.cursor = req.query.cursor.slice(0, 500);
+      const data = await neynar('feed', params);
+      upstream = data.casts || [];
+      nextCursor = data.next?.cursor || null;
+    }
+    const casts = req.query.cursor
+      ? upstream.map((c) => store.decorateCast(c, req.user.fid))
+      : store.decorateCasts(upstream, req.user.fid, channel);
+    res.json({
+      casts,
+      channel,
+      cursor: nextCursor,
+      sample: false,
+      feedFallback: mode === 'trending'
+    });
+  } catch {
+    const rawFeed = sampleFeed(channel);
+    res.json({
+      casts: store.decorateCasts(rawFeed, req.user.fid, channel),
+      channel,
+      sample: false,
+      cursor: null,
+      feedFallback: true
+    });
   }
 });
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
@@ -539,6 +575,7 @@ app.post('/api/casts',requireAuth,throttle('write',30,60000),async(req,res)=>{
   const content=typeof req.body?.text==='string'?req.body.text.trim():'';
   const parent=req.body?.parent;
   const quote=req.body?.quote;
+  const channel=normalizeChannel(req.body?.channel);
   if(
     !content ||
     content.length>320 ||
@@ -580,6 +617,7 @@ app.post('/api/casts',requireAuth,throttle('write',30,60000),async(req,res)=>{
             signer_uuid:uuid,
             text:content,
             idem,
+            ...(channel?{channel_id:channel}:{}),
             ...(parent?{parent}:{}),
             ...(embeds?{embeds}:{})
           });
@@ -588,10 +626,65 @@ app.post('/api/casts',requireAuth,throttle('write',30,60000),async(req,res)=>{
         }catch{}
       }
     }
-    const cast=store.createCast(req.user.fid,{text:content,parent:parent||null,quote:quote||null,externalHash});
+    const cast=store.createCast(req.user.fid,{text:content,parent:parent||null,quote:quote||null,externalHash,channel:channel||null});
     world.syncUser(req.user.fid);
     res.status(201).json({cast,ok:true,hubSynced});
   }catch(e){fail(res,e.message,400);}
+});
+app.post('/api/tips', requireAuth, throttle('tipping', process.env.NODE_ENV === 'test' ? 500 : 30, 60000), async (req, res) => {
+  const { toFid, amount, currency = 'degen', castHash } = req.body || {};
+
+  if (toFid === undefined || toFid === null || !Number.isSafeInteger(Number(toFid))) {
+    return fail(res, 'Invalid recipient FID (toFid is required)', 400);
+  }
+  const targetFid = Number(toFid);
+
+  if (targetFid === Number(req.user.fid)) {
+    return fail(res, 'Cannot tip yourself', 400);
+  }
+
+  if (amount === undefined || amount === null || typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) {
+    return fail(res, 'Tip amount must be a positive integer', 400);
+  }
+
+  const normCurrency = normalizeCurrency(currency);
+  if (!normCurrency) {
+    return fail(res, `Unsupported currency: ${currency}. Supported: ${SUPPORTED_CURRENCIES.join(', ')}`, 400);
+  }
+
+  if (castHash !== undefined && castHash !== null && castHash !== '' && !castHashOk(castHash)) {
+    return fail(res, 'Invalid cast hash', 400);
+  }
+
+  try {
+    const tipResult = store.transferTip(req.user.fid, targetFid, amount, normCurrency, { castHash: castHash || null });
+
+    world.syncUser(req.user.fid);
+    world.syncUser(targetFid);
+
+    world.broadcastTip({
+      fromFid: tipResult.fromFid,
+      fromName: tipResult.fromName,
+      toFid: tipResult.toFid,
+      toName: tipResult.toName,
+      amount: tipResult.amount,
+      currency: tipResult.currency,
+      castHash: tipResult.castHash
+    });
+
+    return res.status(200).json({
+      ok: true,
+      tip: tipResult
+    });
+  } catch (err) {
+    if (err.code === 'RECIPIENT_NOT_FOUND' || err.message?.includes('Recipient account not found')) {
+      return res.status(404).json({ error: 'Recipient account not found', code: 'RECIPIENT_NOT_FOUND' });
+    }
+    if (err.code === 'INSUFFICIENT_BALANCE' || err.message?.includes('Insufficient')) {
+      return res.status(402).json({ error: err.message, code: 'INSUFFICIENT_BALANCE' });
+    }
+    return fail(res, err.message, 400);
+  }
 });
 app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 app.use('/api',(req,res)=>res.status(404).json({error:'Unknown API route'}));

@@ -6,6 +6,75 @@ export const SHOT_COOLDOWN_MS = 680;
 export const DASH_COOLDOWN_MS = 3200;
 export const INTERACT_RANGE = 4.5;
 
+export const DISTRICTS = {
+  farcaster: {
+    id: 'farcaster',
+    channel: 'farcaster',
+    name: 'Main Plaza',
+    pill: '/farcaster',
+    color: '#8a63d2',
+    accent: '#a78bfa',
+    icon: '✦',
+    tagline: 'The beating heart of Simcaster — central fountain, hub relay & transit'
+  },
+  dev: {
+    id: 'dev',
+    channel: 'dev',
+    name: 'Builders Foundry',
+    pill: '/dev',
+    color: '#38bdf8',
+    accent: '#7dd3fc',
+    icon: '💻',
+    tagline: 'Ship mini-apps, stream casts, and build protocol clout'
+  },
+  memes: {
+    id: 'memes',
+    channel: 'memes',
+    name: 'Arcade Lounge',
+    pill: '/memes',
+    color: '#f43f5e',
+    accent: '#fb7185',
+    icon: '🕹️',
+    tagline: 'Lo-fi synth & rooftop social club — boost your Vibe & Clout'
+  },
+  base: {
+    id: 'base',
+    channel: 'base',
+    name: 'Onchain Market',
+    pill: '/base',
+    color: '#0052ff',
+    accent: '#3b82f6',
+    icon: '🛍️',
+    tagline: 'Collect limited creator drops and grab quick street snacks'
+  }
+};
+
+export function getPlazaDistrict(x, z) {
+  const nx = Number(x);
+  const nz = Number(z);
+  if (!Number.isFinite(nx) || !Number.isFinite(nz)) {
+    return DISTRICTS.farcaster;
+  }
+  // Center radius <= 4.0 returns DISTRICTS.farcaster
+  if (Math.hypot(nx, nz) <= 4.0) {
+    return DISTRICTS.farcaster;
+  }
+  // Northeast (x >= 0, z < 0) returns DISTRICTS.dev
+  if (nx >= 0 && nz < 0) return DISTRICTS.dev;
+  // Southwest (x < 0, z >= 0) returns DISTRICTS.memes
+  if (nx < 0 && nz >= 0) return DISTRICTS.memes;
+  // Southeast (x >= 0, z >= 0) returns DISTRICTS.base
+  if (nx >= 0 && nz >= 0) return DISTRICTS.base;
+  // Northwest (x < 0, z < 0) returns DISTRICTS.farcaster
+  return DISTRICTS.farcaster;
+}
+
+export function getDistrictByChannel(channel) {
+  if (!channel || typeof channel !== 'string') return null;
+  const clean = channel.trim().replace(/^\/+/, '').toLowerCase();
+  return DISTRICTS[clean] || Object.values(DISTRICTS).find((d) => d.channel === clean) || null;
+}
+
 export const CAREERS = [
   { id: 'newcomer', title: 'Street Newcomer', minXp: 0, mult: 1.0 },
   { id: 'hustler', title: 'Plaza Hustler', minXp: 50, mult: 1.15 },
@@ -302,6 +371,7 @@ export function publicPlayer(p) {
   if (p.bubble && p.bubbleUntil > Date.now()) out.bubble = p.bubble;
   if (p.shieldUntil && p.shieldUntil > Date.now()) out.shielded = true;
   if (p.dashUntil && p.dashUntil > Date.now()) out.dashing = true;
+  if (typeof p.powerBadge === 'boolean') out.powerBadge = p.powerBadge;
   return out;
 }
 

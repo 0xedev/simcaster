@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { movement, cleanChat, canHit, sanitizeRoom, SHOT_COOLDOWN_MS, collidesWithPlaza, collidesWithArena, lineBlockedByArena, careerForXp } from '../server/rules.js';
+import {
+  movement,
+  cleanChat,
+  canHit,
+  sanitizeRoom,
+  SHOT_COOLDOWN_MS,
+  collidesWithPlaza,
+  collidesWithArena,
+  lineBlockedByArena,
+  careerForXp,
+  DISTRICTS,
+  getPlazaDistrict,
+  getDistrictByChannel
+} from '../server/rules.js';
+
 test('movement is normalized, bounded and cannot teleport',()=>{
   const a=movement({dx:100,dz:100},10);
   assert.ok(Math.hypot(a.dx,a.dz)<=0.85);
@@ -46,4 +60,79 @@ test('career promotion scales with XP thresholds',()=>{
   assert.equal(careerForXp(150).id,'creator');
   assert.equal(careerForXp(2500).id,'mogul');
 });
+
+test('DISTRICTS definition contains all four required Farcaster channel zones', () => {
+  const expectedKeys = ['farcaster', 'dev', 'memes', 'base'];
+  assert.deepEqual(Object.keys(DISTRICTS), expectedKeys);
+
+  // Validate /farcaster
+  assert.equal(DISTRICTS.farcaster.id, 'farcaster');
+  assert.equal(DISTRICTS.farcaster.channel, 'farcaster');
+  assert.equal(DISTRICTS.farcaster.pill, '/farcaster');
+  assert.equal(DISTRICTS.farcaster.name, 'Main Plaza');
+  assert.ok(DISTRICTS.farcaster.color.startsWith('#'));
+  assert.ok(DISTRICTS.farcaster.accent.startsWith('#'));
+
+  // Validate /dev
+  assert.equal(DISTRICTS.dev.id, 'dev');
+  assert.equal(DISTRICTS.dev.channel, 'dev');
+  assert.equal(DISTRICTS.dev.pill, '/dev');
+  assert.equal(DISTRICTS.dev.name, 'Builders Foundry');
+
+  // Validate /memes
+  assert.equal(DISTRICTS.memes.id, 'memes');
+  assert.equal(DISTRICTS.memes.channel, 'memes');
+  assert.equal(DISTRICTS.memes.pill, '/memes');
+  assert.equal(DISTRICTS.memes.name, 'Arcade Lounge');
+
+  // Validate /base
+  assert.equal(DISTRICTS.base.id, 'base');
+  assert.equal(DISTRICTS.base.channel, 'base');
+  assert.equal(DISTRICTS.base.pill, '/base');
+  assert.equal(DISTRICTS.base.name, 'Onchain Market');
+});
+
+test('getPlazaDistrict classifies coordinates by center radius and quadrants', () => {
+  // Center fountain core (radius <= 4.0) -> /farcaster
+  assert.equal(getPlazaDistrict(0, 0).id, 'farcaster');
+  assert.equal(getPlazaDistrict(0, -3.2).id, 'farcaster'); // Hub Relay Core
+  assert.equal(getPlazaDistrict(2.5, 2.5).id, 'farcaster'); // hypot ≈ 3.53 <= 4.0
+  assert.equal(getPlazaDistrict(4.0, 0).id, 'farcaster'); // exactly on boundary
+
+  // Northeast (+X, -Z) -> /dev Builders Foundry
+  assert.equal(getPlazaDistrict(6, -10.8).id, 'dev'); // The Foundry Studio
+  assert.equal(getPlazaDistrict(12, -4).id, 'dev');
+  assert.equal(getPlazaDistrict(0.1, -4.5).id, 'dev');
+
+  // Southwest (-X, +Z) -> /memes Arcade Lounge
+  assert.equal(getPlazaDistrict(-5.5, 10.6).id, 'memes'); // Purple Channel Lounge
+  assert.equal(getPlazaDistrict(-10, 5).id, 'memes');
+  assert.equal(getPlazaDistrict(-4.5, 0.1).id, 'memes');
+
+  // Southeast (+X, +Z) -> /base Onchain Market
+  assert.equal(getPlazaDistrict(6.5, 10.6).id, 'base'); // Onchain Pop-Up Market
+  assert.equal(getPlazaDistrict(10, 10).id, 'base');
+  assert.equal(getPlazaDistrict(5, 5).id, 'base');
+
+  // Northwest (-X, -Z) -> /farcaster Main Plaza Extension
+  assert.equal(getPlazaDistrict(-6, -10.8).id, 'farcaster'); // Warp Bean Café
+  assert.equal(getPlazaDistrict(-12, -12).id, 'farcaster');
+
+  // Robustness & fallback on invalid inputs
+  assert.equal(getPlazaDistrict(null, undefined).id, 'farcaster');
+  assert.equal(getPlazaDistrict(NaN, 0).id, 'farcaster');
+  assert.equal(getPlazaDistrict('abc', 'def').id, 'farcaster');
+});
+
+test('getDistrictByChannel normalizes channel queries with or without slashes', () => {
+  assert.equal(getDistrictByChannel('farcaster')?.id, 'farcaster');
+  assert.equal(getDistrictByChannel('/farcaster')?.id, 'farcaster');
+  assert.equal(getDistrictByChannel('/dev')?.id, 'dev');
+  assert.equal(getDistrictByChannel('DEV')?.id, 'dev');
+  assert.equal(getDistrictByChannel('  /memes  ')?.id, 'memes');
+  assert.equal(getDistrictByChannel('/base')?.id, 'base');
+  assert.equal(getDistrictByChannel('unknown-channel'), null);
+  assert.equal(getDistrictByChannel(null), null);
+});
+
 
