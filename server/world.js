@@ -3,15 +3,18 @@ import crypto from 'node:crypto';
 import {
   WORLD_SIZE,
   ARENA_SIZE,
+  SHOT_RANGE,
   SHOT_COOLDOWN_MS,
   DASH_COOLDOWN_MS,
   INTERACT_RANGE,
   PLAZA_HOTSPOTS,
   CITY_NPCS,
+  ARENA_BOTS,
   cleanChat,
   clamp,
   movement,
   canHit,
+  lineBlockedByArena,
   publicPlayer,
   sanitizeRoom,
   collidesWithPlaza,
@@ -50,6 +53,19 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
       key,
       type,
       players: new Map(),
+      bots:
+        type === 'arena'
+          ? ARENA_BOTS.map((b) => ({
+              ...b,
+              npc: true,
+              x: b.cx,
+              z: b.cz,
+              heading: 0,
+              hp: 3,
+              score: 0,
+              downUntil: 0
+            }))
+          : [],
       locked: false,
       created: Date.now(),
       started: null,
@@ -287,6 +303,15 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
         p.lastChat = now;
         p.bubble = text.slice(0, 64);
         p.bubbleUntil = now + 6500;
+        const u = store.findUser(p.fid);
+        if (u) {
+          u.creds += 10;
+          u.currencies.creds = u.creds;
+          u.needs.vibe = clamp(u.needs.vibe + 3, 0, 100);
+          p.creds = u.creds;
+          p.needs = { ...u.needs };
+          store.saveDebounced();
+        }
         const chatPayload = { id: p.id, fid: p.fid, name: p.name, text, time: now };
         for (const target of room.players.values()) {
           if (!store.isBlocked(p.fid, target.fid)) {
@@ -301,13 +326,14 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
         const target = room.players.get(packet.data?.targetId);
         if (target && (store.isBlocked(p.fid, target.fid) || Math.hypot(p.x - target.x, p.z - target.z) > 5)) return;
         p.lastEmote = now;
-        if (packet.data.name === 'dance') {
-          const u = store.findUser(p.fid);
-          if (u) {
-            u.needs.vibe = clamp(u.needs.vibe + 3, 0, 100);
-            p.needs = { ...u.needs };
-            store.saveDebounced();
-          }
+        const u = store.findUser(p.fid);
+        if (u) {
+          u.creds += 15;
+          u.currencies.creds = u.creds;
+          u.needs.vibe = clamp(u.needs.vibe + 5, 0, 100);
+          p.creds = u.creds;
+          p.needs = { ...u.needs };
+          store.saveDebounced();
         }
         broadcast(room, 'emote', { id: p.id, name: packet.data.name, targetId: target?.id || null });
       } else if (packet.event === 'interact' && type === 'plaza') {
@@ -340,7 +366,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
           if (hotspotId === 'power-grid' && room.cityEvent === 'blackout') {
             room.cityEvent = null;
             room.cityEventUntil = 0;
-            broadcast(room, 'notice', { text: `⚡ ${p.name} stabilized the Hub Relay Core and earned a ₡70 bonus!` });
+            broadcast(room, 'notice', { text: `⚡ ${p.name} stabilized the Hub Relay Core and earned a +90 DEGEN bonus!` });
           }
           send(ws, 'activity', {
             ok: true,
@@ -367,6 +393,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
           send(ws, 'activity', {
             ok: true,
             action: result.effect,
+            deltaCreds: result.deltaCreds || 25,
             creds: p.creds,
             needs: p.needs,
             career: p.career,
@@ -425,16 +452,57 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
         }
       } else if (packet.event === 'shoot' && type === 'arena') {
         if (now - p.lastShot < SHOT_COOLDOWN_MS || p.hp <= 0) return;
-        const targets = [...room.players.values()].filter((target) => canHit(p, target, now));
+        const humanTargets = [...room.players.values()].filter((target) => canHit(p, target, now));
+        humanTargets.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+        let hit = humanTargets[0] || null;
+
+        if (!hit && Array.isArray(room.bots)) {
+          const requestedId = packet.data?.targetId;
+          const validBots = room.bots.filter((bot) => {
+            if (!bot || bot.hp <= 0) return false;
+            const dist = Math.hypot(bot.x - p.x, bot.z - p.z);
+            if (dist > SHOT_RANGE || dist < 0.25) return false;
+            if (lineBlockedByArena(p.x, p.z, bot.x, bot.z)) return false;
+            if (requestedId && bot.id === requestedId) return true;
+            const angle = Math.atan2(bot.x - p.x, bot.z - p.z);
+            const diff = Math.atan2(Math.sin(angle - p.heading), Math.cos(angle - p.heading));
+            return Math.abs(diff) < 0.85;
+          });
+          validBots.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+          hit = validBots[0] || null;
+          if (hit) {
+            p.heading = Math.atan2(hit.x - p.x, hit.z - p.z);
+          }
+        }
+
         p.lastShot = now; // cooldown consumed even on miss
-        targets.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
-        const hit = targets[0];
         if (hit) {
           hit.hp -= 1;
           store.recordQuestProgress(p.fid, 'arena_tags', 1);
+          let degenEarned = 15;
           if (hit.hp <= 0) {
             hit.downUntil = now + 2800;
             p.score += 1;
+            degenEarned = 60;
+          }
+          const u = store.findUser(p.fid);
+          if (u) {
+            u.creds += degenEarned;
+            u.currencies.creds = u.creds;
+            u.currencies.degen = (u.currencies.degen || 0) + degenEarned;
+            u.xp += hit.hp <= 0 ? 15 : 5;
+            u.needs.vibe = clamp(u.needs.vibe + 4, 0, 100);
+            u.needs.clout = clamp(u.needs.clout + (hit.hp <= 0 ? 5 : 2), 0, 100);
+            store.saveDebounced();
+            syncPlayerAccount(p);
+            send(ws, 'activity', {
+              ok: true,
+              action: hit.hp <= 0 ? `Tagged ${hit.name}! (+${degenEarned} DEGEN)` : `Laser hit on ${hit.name}! (+${degenEarned} DEGEN)`,
+              deltaCreds: degenEarned,
+              creds: p.creds,
+              needs: p.needs,
+              career: p.career
+            });
           }
         }
         broadcast(room, 'shot', {
@@ -471,7 +539,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
       if (room.type === 'plaza') {
         if (room.cityEvent && now > room.cityEventUntil) {
           room.cityEvent = null;
-          broadcast(room, 'notice', { text: '🏙️ City conditions have returned to normal.' });
+          broadcast(room, 'notice', { text: '🏙️ Channel conditions have returned to normal.' });
         } else if (!room.cityEvent && now - room.lastEventRoll > 75000 && room.players.size > 0) {
           room.lastEventRoll = now;
           room.cityEvent = Math.random() < 0.5 ? 'blackout' : 'happy_hour';
@@ -479,8 +547,8 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
           broadcast(room, 'notice', {
             text:
               room.cityEvent === 'blackout'
-                ? '⚠️ HUB RELAY OUTAGE! Visit the Hub Relay Core to restore power for a ₡70 bonus!'
-                : '🎉 HAPPY HOUR! Vibe & Clout boosts are surging across the Plaza!'
+                ? '⚠️ HUB RELAY OUTAGE! Visit the Hub Relay Core to restore power for a +90 DEGEN bonus!'
+                : '🎉 HAPPY HOUR! Vibe, Clout & DEGEN rewards are surging across all Channels!'
           });
         }
       }
@@ -543,9 +611,19 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
         if (!room.powerup && now >= room.nextPowerupAt) {
           room.powerup = { type: Math.random() < 0.5 ? 'shield' : 'heal', x: 0, z: -10.5 };
         }
-        if (room.players.size < 2) {
+        for (const bot of room.bots || []) {
+          if (bot.hp <= 0 && now >= bot.downUntil) {
+            bot.hp = 3;
+          }
+          if (bot.hp > 0) {
+            const angle = (now / 1000) * bot.speed + bot.phase;
+            bot.x = +(bot.cx + Math.cos(angle) * bot.radius).toFixed(2);
+            bot.z = +(bot.cz + Math.sin(angle) * bot.radius).toFixed(2);
+            bot.heading = +Math.atan2(-Math.sin(angle), Math.cos(angle)).toFixed(2);
+          }
+        }
+        if (room.players.size === 0) {
           room.started = null;
-          for (const participant of room.players.values()) participant.score = 0;
         } else {
           if (!room.started) room.started = now;
           const reachedScore = [...room.players.values()].find((participant) => participant.score >= 7);
@@ -594,7 +672,21 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
                 bubble: showBubble ? npc.lines[lineIdx] : undefined
               };
             })
-          : [];
+          : room.type === 'arena'
+            ? (room.bots || []).map((bot) => ({
+                id: bot.id,
+                fid: bot.fid,
+                name: bot.name,
+                npc: true,
+                x: bot.x,
+                z: bot.z,
+                heading: bot.heading,
+                avatar: bot.avatar,
+                hp: bot.hp,
+                score: bot.score,
+                bubble: bot.hp <= 0 ? '⚡ Rebooting…' : undefined
+              }))
+            : [];
 
       const localPlayers = [...room.players.values()].map(publicPlayer);
       if (clusterBus && localPlayers.length > 0) {

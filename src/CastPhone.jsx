@@ -199,7 +199,7 @@ export default function CastPhone({
       if (res.promoted) soundEngine.playPromotion();
       else if (res.deltaCreds > 0) soundEngine.playCash();
       else soundEngine.playClick();
-      const sign = res.deltaCreds >= 0 ? `+₡${res.deltaCreds}` : `-₡${Math.abs(res.deltaCreds)}`;
+      const sign = res.deltaCreds >= 0 ? `+${res.deltaCreds} DEGEN` : `-${Math.abs(res.deltaCreds)} DEGEN`;
       notify(`${res.hotspot}: ${res.action} (${sign})${res.promoted ? ` · Promoted to ${res.promoted}!` : ''}`);
     } catch (e) {
       notify(e.message);
@@ -218,7 +218,7 @@ export default function CastPhone({
       if (res.user && onUserUpdate) onUserUpdate(res.user);
       soundEngine.playPromotion();
       notify(
-        `Quest Completed: ${res.quest.title} (+₡${res.rewardCreds}, +${res.rewardXp} XP)${
+        `Quest Completed: ${res.quest.title} (+${res.rewardCreds} DEGEN, +${res.rewardXp} XP)${
           res.promoted ? ` · Promoted to ${res.promoted}!` : ''
         }`
       );
@@ -255,7 +255,7 @@ export default function CastPhone({
       });
       if (res.user && onUserUpdate) onUserUpdate(res.user);
       soundEngine.playPromotion();
-      notify(`Upgraded your real estate to ${catalog.homeTiers[tier]?.name || tier}!`);
+      notify(`Upgraded your apartment to ${catalog.homeTiers[tier]?.name || tier}!`);
     } catch (e) {
       notify(e.message);
     } finally {
@@ -351,7 +351,7 @@ export default function CastPhone({
         })
       );
 
-      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} ₡DEGEN (+5 Clout, +5 Vibe)!`);
+      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} DEGEN (+5 Clout, +5 Vibe)!`);
       setTipCastHash(null);
     } catch (err) {
       notify(err.message || 'Tip failed');
@@ -443,12 +443,12 @@ export default function CastPhone({
   }
 
   return (
-    <dialog ref={dialogRef} className="castphone-dialog" closedby="any" aria-label="CastPhone OS">
+    <dialog ref={dialogRef} className="castphone-dialog" closedby="any" aria-label="Phone">
       <div className="castphone-frame">
         <header className="castphone-status">
           <div className="castphone-brand">
             <span className="live-pulse" />
-            <strong>CastPhone OS</strong>
+            <strong>Phone</strong>
             <span className="castphone-career">{currentCareer.title}</span>
             {user?.powerBadge && (
               <span
@@ -475,14 +475,14 @@ export default function CastPhone({
           >
             {radioOn ? <Volume2 size={13} /> : <VolumeX size={13} />} FM
           </button>
-          <div className="castphone-wallet" title="Simcaster Creds">
-            ₡{creds.toLocaleString()}
+          <div className="castphone-wallet" title="DEGEN Balance">
+            🎩 {creds.toLocaleString()} DEGEN
           </div>
           <button
             type="button"
             className="castphone-close"
             onClick={() => dialogRef.current?.close()}
-            aria-label="Close CastPhone"
+            aria-label="Close Phone"
           >
             <X size={18} />
           </button>
@@ -519,12 +519,12 @@ export default function CastPhone({
           </div>
         </div>
 
-        <nav className="castphone-tabs" aria-label="CastPhone Apps">
+        <nav className="castphone-tabs" aria-label="Phone Apps">
           <button type="button" className={app === 'jobs' ? 'active' : ''} onClick={() => { soundEngine.playClick(); setApp('jobs'); }}>
-            <Briefcase size={15} /> Hustle
+            <Briefcase size={15} /> Activities
           </button>
           <button type="button" className={app === 'shop' ? 'active' : ''} onClick={() => { soundEngine.playClick(); setApp('shop'); }}>
-            <ShoppingBag size={15} /> Shop & Pad
+            <ShoppingBag size={15} /> Shop
           </button>
           <button type="button" className={app === 'mayor' ? 'active' : ''} onClick={() => { soundEngine.playClick(); setApp('mayor'); }}>
             <Crown size={15} /> City Hall
@@ -533,7 +533,7 @@ export default function CastPhone({
             <Radio size={15} /> Casts
           </button>
           <button type="button" className={app === 'friends' ? 'active' : ''} onClick={() => { soundEngine.playClick(); setApp('friends'); }}>
-            <Users size={15} /> Crew
+            <Users size={15} /> Friends
           </button>
         </nav>
 
@@ -543,16 +543,16 @@ export default function CastPhone({
               <div className="phone-card highlight-card">
                 <div className="phone-card-row">
                   <div>
-                    <small>CAREER TRACK</small>
+                    <small>CAREER LEVEL</small>
                     <h4>
-                      {currentCareer.title} ({currentCareer.mult}x Pay)
+                      {currentCareer.title} ({currentCareer.mult}x DEGEN Bonus)
                     </h4>
                   </div>
                   <span className="xp-badge">{xp} XP</span>
                 </div>
                 <p>
                   {nextCareer
-                    ? `${nextCareer.minXp - xp} XP until promotion to ${nextCareer.title} (${nextCareer.mult}x pay)`
+                    ? `${nextCareer.minXp - xp} XP until promotion to ${nextCareer.title} (${nextCareer.mult}x DEGEN)`
                     : 'Maximum Mogul rank achieved! You run this city.'}
                 </p>
                 {city.policyDetails && (
@@ -565,7 +565,7 @@ export default function CastPhone({
 
               {(catalog.quests || []).length > 0 && (
                 <>
-                  <div className="phone-section-title">DAILY HUSTLE QUESTS</div>
+                  <div className="phone-section-title">DAILY QUESTS</div>
                   <div className="hotspot-list">
                     {catalog.quests.map((q) => {
                       const qState = user?.quests?.[q.id] || { progress: 0, claimed: false };
@@ -579,7 +579,7 @@ export default function CastPhone({
                               <small style={{ display: 'block', color: '#7a7090' }}>{q.description}</small>
                             </div>
                             <span className="xp-badge">
-                              +₡{q.rewardCreds} · +{q.rewardXp} XP
+                              +{q.rewardCreds} DEGEN · +{q.rewardXp} XP
                             </span>
                           </div>
                           <div className="quest-bar-row">
@@ -605,7 +605,7 @@ export default function CastPhone({
                                 className={ready ? 'phone-btn-earn' : 'phone-btn-secondary'}
                                 onClick={() => claimQuestReward(q.id)}
                               >
-                                {ready ? `Claim +₡${q.rewardCreds}` : 'In Progress'}
+                                {ready ? `Claim +${q.rewardCreds} DEGEN` : 'In Progress'}
                               </button>
                             )}
                           </div>
@@ -616,7 +616,7 @@ export default function CastPhone({
                 </>
               )}
 
-              <div className="phone-section-title">CITY HUSTLES & VENUES</div>
+              <div className="phone-section-title">CHANNEL VENUES & ACTIVITIES</div>
               <div className="hotspot-list">
                 {catalog.hotspots.map((h) => (
                   <div className="phone-card" key={h.id}>
@@ -648,7 +648,7 @@ export default function CastPhone({
 
           {app === 'shop' && (
             <div className="phone-section">
-              <div className="phone-section-title">REAL ESTATE UPGRADES</div>
+              <div className="phone-section-title">APARTMENT UPGRADES</div>
               <div className="tier-grid">
                 {Object.values(catalog.homeTiers || {}).map((t) => {
                   const isCurrent = (user?.homeTier || 'studio') === t.id;
@@ -658,7 +658,7 @@ export default function CastPhone({
                     <div key={t.id} className={'phone-card tier-card ' + (isCurrent ? 'tier-current' : '')}>
                       <div className="phone-card-row">
                         <strong>{t.name}</strong>
-                        <span className="tier-price">{t.price === 0 ? 'Starter' : `₡${t.price}`}</span>
+                        <span className="tier-price">{t.price === 0 ? 'Starter' : `${t.price.toLocaleString()} DEGEN`}</span>
                       </div>
                       <small>{t.description}</small>
                       <div className="tier-actions">
@@ -671,7 +671,7 @@ export default function CastPhone({
                               if (onGoHome) onGoHome();
                             }}
                           >
-                            <House size={13} /> Enter My Pad
+                            <House size={13} /> Enter Home
                           </button>
                         ) : owned ? (
                           <span className="owned-tag">
@@ -684,7 +684,7 @@ export default function CastPhone({
                             className="phone-btn-earn"
                             onClick={() => upgradeTier(t.id)}
                           >
-                            Upgrade (₡{t.price})
+                            Upgrade ({t.price.toLocaleString()} DEGEN)
                           </button>
                         )}
                       </div>
@@ -715,7 +715,7 @@ export default function CastPhone({
                           className="phone-btn-earn"
                           onClick={() => buyItem(item.type)}
                         >
-                          Buy ₡{item.price}
+                          Buy {item.price} DEGEN
                         </button>
                       )}
                     </div>
@@ -728,13 +728,13 @@ export default function CastPhone({
           {app === 'mayor' && (
             <div className="phone-section">
               <div className="phone-card highlight-card">
-                <small>WEEKLY CITY GOVERNOR / MAYOR</small>
+                <small>WEEKLY CITY MAYOR</small>
                 <h4>
                   {city.mayor ? `👑 Mayor ${city.mayor.displayName} (${city.mayor.votes} votes)` : 'Seat Open — Run Today!'}
                 </h4>
                 <p>
                   Active Policy: <b>{city.policyDetails?.label || 'Creator Stimulus'}</b> —{' '}
-                  {city.policyDetails?.description || '+25% Creds on Plaza shifts'}
+                  {city.policyDetails?.description || '+25% DEGEN on all Channel activities'}
                 </p>
               </div>
 
@@ -743,7 +743,7 @@ export default function CastPhone({
                 <input
                   value={slogan}
                   onChange={(e) => setSlogan(e.target.value)}
-                  placeholder="Your campaign slogan (e.g. Zero taxes & 24/7 power!)"
+                  placeholder="Your campaign slogan (e.g. More DEGEN rewards for everyone!)"
                   maxLength={90}
                   required
                 />
@@ -791,8 +791,8 @@ export default function CastPhone({
                       : phoneQuote
                         ? `Quote @${phoneQuote.author?.username || 'farcaster'}`
                         : channelId
-                          ? `Post to /${channelId}`
-                          : 'Quick Farcaster Cast'}
+                          ? `Cast to /${channelId}`
+                          : 'New Cast'}
                   </strong>
                   {(phoneReply || phoneQuote) && (
                     <button
@@ -830,7 +830,7 @@ export default function CastPhone({
                         display: 'inline-block'
                       }}
                     />
-                    Posting to {channelPill || `/${channelId}`} ({channelName || 'District'})
+                    Posting in {channelPill || `/${channelId}`} ({channelName || 'Channel'})
                   </div>
                 )}
 
@@ -849,13 +849,13 @@ export default function CastPhone({
                         ? 'Add your quote commentary…'
                         : channelId
                           ? `Share what's happening in ${channelPill || `/${channelId}`}…`
-                          : "Share what's happening in the Plaza…"
+                          : "What's happening on Farcaster?"
                   }
                   maxLength={320}
                 />
                 <button type="submit" disabled={busy || !castText.trim()} className="phone-btn-earn">
                   <Send size={13} />{' '}
-                  {phoneReply ? 'Post Reply' : phoneQuote ? 'Post Quote' : channelId ? `Post to /${channelId}` : 'Post Cast'}
+                  {phoneReply ? 'Post Reply' : phoneQuote ? 'Post Quote' : channelId ? `Cast to /${channelId}` : 'Publish Cast'}
                 </button>
               </form>
 
@@ -870,7 +870,7 @@ export default function CastPhone({
                 }}
               >
                 <div className="phone-section-title" style={{ margin: 0 }}>
-                  {channelId ? 'DISTRICT STREAM' : 'LATEST CASTS'}
+                  {channelId ? 'CHANNEL FEED' : 'LATEST CASTS'}
                 </div>
                 {channelId && (
                   <div
@@ -906,7 +906,7 @@ export default function CastPhone({
                 <div className="phone-empty">
                   {channelId
                     ? `No casts in ${channelPill || `/${channelId}`} yet. Be the first to cast here!`
-                    : 'No casts found in the trending feed.'}
+                    : 'No casts found in the feed.'}
                 </div>
               ) : (
                 casts.slice(0, 8).map((c) => (
@@ -992,7 +992,7 @@ export default function CastPhone({
                           onClick={() => setTipCastHash(tipCastHash === c.hash ? null : c.hash)}
                           aria-label={`Tip @${c.author?.username || 'caster'}`}
                         >
-                          🪙 Tip
+                          🎩 Tip DEGEN
                         </button>
                       )}
                     </div>
@@ -1014,7 +1014,7 @@ export default function CastPhone({
                           fontWeight: 700,
                           color: '#634b07'
                         }}>
-                          <span>Tip @{c.author?.username || 'caster'}:</span>
+                          <span>Tip @{c.author?.username || 'caster'} in DEGEN:</span>
                           <button
                             type="button"
                             className="phone-tip-close"
@@ -1036,7 +1036,7 @@ export default function CastPhone({
                                 className="phone-btn-tip-preset"
                                 disabled={busy || !canAfford}
                                 onClick={() => tipCastInPhone(c, amt)}
-                                title={!canAfford ? 'Insufficient balance' : `Tip ${amt} ₡DEGEN`}
+                                title={!canAfford ? 'Insufficient DEGEN balance' : `Tip ${amt} DEGEN`}
                                 style={{
                                   background: canAfford ? '#fff8dd' : '#f0eddf',
                                   color: canAfford ? '#795b05' : '#9a9484',
@@ -1049,7 +1049,7 @@ export default function CastPhone({
                                   opacity: canAfford ? 1 : 0.5
                                 }}
                               >
-                                {isThisBusy ? '...' : `${amt} ₡DEGEN`}
+                                {isThisBusy ? '...' : `${amt} DEGEN`}
                               </button>
                             );
                           })}
@@ -1064,10 +1064,10 @@ export default function CastPhone({
 
           {app === 'friends' && (
             <div className="phone-section">
-              <div className="phone-section-title">SIMCASTER CONTACTS</div>
+              <div className="phone-section-title">FRIENDS & NEIGHBORS</div>
               {friends.length === 0 ? (
                 <div className="phone-empty">
-                  Click any player avatar in the Plaza and choose <b>Add friend</b> to connect and visit each other’s
+                  Click any player avatar in the world and choose <b>Add friend</b> to connect and visit each other’s
                   apartments!
                 </div>
               ) : (
@@ -1076,7 +1076,7 @@ export default function CastPhone({
                     <div>
                       <strong>{f.displayName}</strong>
                       <small>
-                        @{f.username || 'fid-' + f.fid} · {f.homeTier || 'studio'} pad
+                        @{f.username || 'fid-' + f.fid} · {f.homeTier || 'studio'} apartment
                       </small>
                     </div>
                     {f.status === 'friends' ? (
@@ -1088,7 +1088,7 @@ export default function CastPhone({
                           if (onVisitHome) onVisitHome(f.fid);
                         }}
                       >
-                        <House size={13} /> Visit Pad
+                        <House size={13} /> Visit Home
                       </button>
                     ) : f.status === 'incoming' ? (
                       <button type="button" disabled={busy} className="phone-btn-earn" onClick={() => acceptFriend(f.fid)}>

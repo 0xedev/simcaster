@@ -165,13 +165,13 @@ function Sidebar({tab,onTab,user,stats,config,onLogout,openMobile,setOpenMobile}
   </>;
 }
 function Topbar({user,tab,openMenu,stats,onTab,onOpenPhone}) {
-  const titles={home:'Your dashboard',feed:'Social feed',world:'Farcaster Channels',arcade:'Game arcade',profile:'My character',friends:'Friends & requests','home-space':'My apartment',settings:'Settings',arena:'Laser tag'};
+  const titles={home:'Overview',feed:'Social feed',world:'Farcaster Channels',arcade:'Game arcade',profile:'My character',friends:'Friends & requests','home-space':'My apartment',settings:'Settings',arena:'Laser Tag Arena'};
   const creds=user.creds??250;
   return <header className="topbar">
     <div className="topbar-title"><button className="hamburger" onClick={openMenu}><Menu size={22}/></button><div><small>SIMCASTER / {tab==='world'?'CHANNELS':tab.toUpperCase()}</small><h2>{titles[tab]}</h2></div></div>
     <div className="topbar-actions">
-      <button type="button" className="topbar-phone-btn" onClick={()=>onOpenPhone('jobs')} title="Open CastPhone OS"><Smartphone size={15}/> CastPhone · ₡{creds}</button>
-      <span className="global-online"><span className="live-pulse"/>{stats.players??0} exploring</span>
+      <button type="button" className="topbar-phone-btn" onClick={()=>onOpenPhone('jobs')} title="Open Phone"><Smartphone size={15}/> Phone · 🎩 {creds.toLocaleString()} DEGEN</button>
+      <span className="global-online"><span className="live-pulse"/>{stats.players??0} online</span>
       <button className="top-avatar" onClick={()=>onTab('profile')} title="Your character"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/></button>
     </div>
   </header>;
@@ -183,11 +183,11 @@ function Dashboard({user,onTab,onEnterChannel,stats,config,onOpenPhone}) {
   const policy=stats.city?.policyDetails;
   const jumpChannel=ch=>{if(onEnterChannel)onEnterChannel(ch);else onTab('world');};
   return <div className="page-content dashboard-page">
-    <div className="page-kicker"><span className="live-pulse"/> YOUR LITTLE UNIVERSE IS READY · {policy?`ACTIVE DECREE: ${policy.label.toUpperCase()}`:'SIMCASTER CHANNELS'}</div>
-    <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR NEW SOCIAL WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Let's make</span> some memories.</h1><p>Drop into live Farcaster Channels (/farcaster, /dev, /memes, /base), tip creators in ₡DEGEN, upgrade to a Skyline Penthouse, or run for City Mayor.</p>
+    <div className="page-kicker"><span className="live-pulse"/> LIVE SOCIAL WORLD · {policy?`ACTIVE DECREE: ${policy.label.toUpperCase()}`:'FARCASTER CHANNELS'}</div>
+    <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR FARCASTER WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Jump into</span> the channels.</h1><p>Explore live 3D Farcaster Channels (/farcaster, /dev, /memes, /base), earn DEGEN from every activity, play 4 arcade games, or customize your apartment.</p>
       <div className="hero-cta-row">
         <button className="primary-btn" onClick={()=>jumpChannel('farcaster')}>Enter Channels <ArrowUpRight size={18}/></button>
-        <button className="secondary-btn" onClick={()=>onOpenPhone('jobs')}><Smartphone size={16}/> Open CastPhone</button>
+        <button className="secondary-btn" onClick={()=>onOpenPhone('jobs')}><Smartphone size={16}/> Open Phone</button>
       </div>
     </div>
       <div className="hero-illustration hero-world-preview">
@@ -200,23 +200,23 @@ function Dashboard({user,onTab,onEnterChannel,stats,config,onOpenPhone}) {
           <button onClick={()=>jumpChannel('dev')}>💻 /dev ↗</button>
           <button onClick={()=>jumpChannel('memes')}>🕹️ /memes ↗</button>
           <button onClick={()=>jumpChannel('base')}>🛍️ /base ↗</button>
-          <button onClick={()=>onTab('home-space')}>🏠 My pad ↗</button>
+          <button onClick={()=>onTab('home-space')}>🏠 My home ↗</button>
         </div>
       </div>
     </div>
     <div className="stats-row stats-row-4">
-      <div className="stat-card"><div className="stat-icon lavender"><Zap size={21}/></div><div><strong>₡{creds}</strong><span>Wallet · {(user.career||'newcomer').toUpperCase()}</span></div></div>
+      <div className="stat-card"><div className="stat-icon lavender"><Zap size={21}/></div><div><strong>🎩 {creds.toLocaleString()} DEGEN</strong><span>Balance · {(user.career||'newcomer').toUpperCase()}</span></div></div>
       <div className="stat-card"><div className="stat-icon mint"><Heart size={21}/></div><div><strong>⚡{needs.energy}% · 🍲{needs.hunger}%</strong><span>Energy & Hunger</span></div></div>
       <div className="stat-card"><div className="stat-icon peach"><Sparkles size={21}/></div><div><strong>🎧{needs.vibe}% · 🔥{needs.clout}</strong><span>Vibe & Clout</span></div></div>
       <div className="stat-card" onClick={()=>onOpenPhone('mayor')} style={{cursor:'pointer'}}><div className="stat-icon lavender"><Crown size={21}/></div><div><strong>{mayor?mayor.displayName:'Vote Now'}</strong><span>City Mayor · {stats.players??0} online</span></div></div>
     </div>
-    <div className="section-heading"><div><span className="eyebrow">PICK YOUR CHANNEL</span><h2>Where are we hanging out today?</h2></div><button className="text-link" onClick={()=>jumpChannel('farcaster')}>Explore all channels <ArrowRight size={17}/></button></div>
+    <div className="section-heading"><div><span className="eyebrow">PICK YOUR ACTIVITY</span><h2>Where are we hanging out today?</h2></div><button className="text-link" onClick={()=>jumpChannel('farcaster')}>Explore all channels <ArrowRight size={17}/></button></div>
     <div className="adventure-grid">
-      <button className="adventure-card explore-card" onClick={()=>jumpChannel('farcaster')}><div className="adventure-deco">✦</div><span className="adventure-illustration">🟣</span><span className="card-tag">4 LIVE CHANNELS</span><h3>Hang out in Farcaster Channels</h3><p>Roam /farcaster Hub, /dev Builders Foundry, /memes Arcade Lounge, and /base Onchain Market.</p><span className="adventure-cta">Enter Channels <ArrowUpRight size={17}/></span></button>
-      <button className="adventure-card arcade-card" onClick={()=>onTab('arcade')}><span className="adventure-illustration">🕹️</span><span className="card-tag">TACTICAL ARENA</span><h3>Laser Tag 2.0</h3><p>Use neon bunkers for cover, grab shields, dash, and win ₡100 Creds per match.</p><span className="adventure-cta">Visit arcade <ArrowUpRight size={17}/></span></button>
-      <button className="adventure-card home-card" onClick={()=>onTab('home-space')}><span className="adventure-illustration">🛋️</span><span className="card-tag">REAL ESTATE TIERS</span><h3>Upgrade your pad</h3><p>Unlock beds, DJ decks & espresso bars, and upgrade to a Skyline Penthouse.</p><span className="adventure-cta">Visit apartment <ArrowUpRight size={17}/></span></button>
+      <button className="adventure-card explore-card" onClick={()=>jumpChannel('farcaster')}><div className="adventure-deco">✦</div><span className="adventure-illustration">🟣</span><span className="card-tag">4 LIVE CHANNELS</span><h3>Explore Farcaster Channels</h3><p>Walk through /farcaster Hub, /dev Builders Foundry, /memes Lounge, and /base Market to earn DEGEN.</p><span className="adventure-cta">Enter Channels <ArrowUpRight size={17}/></span></button>
+      <button className="adventure-card arcade-card" onClick={()=>onTab('arcade')}><span className="adventure-illustration">🕹️</span><span className="card-tag">4 PLAYABLE GAMES</span><h3>Play in the Arcade</h3><p>Play 3D Laser Tag Arena, Channel Trivia Blitz, Degen Catcher, and Tower Stacker for instant DEGEN rewards.</p><span className="adventure-cta">Play games <ArrowUpRight size={17}/></span></button>
+      <button className="adventure-card home-card" onClick={()=>onTab('home-space')}><span className="adventure-illustration">🛋️</span><span className="card-tag">3D APARTMENTS</span><h3>Customize your home</h3><p>Place interactive furniture, spin sets on your DJ booth, brew espresso, and earn DEGEN at home.</p><span className="adventure-cta">Visit apartment <ArrowUpRight size={17}/></span></button>
     </div>
-    <div className="home-bottom"><div className="community-strip"><span className="community-symbol">❋</span><div><h3>Built around real people.</h3><p>Simcaster connects to Farcaster — one identity across your feed and your world.</p></div><button onClick={()=>onTab('feed')}>Open social feed <ArrowRight size={17}/></button></div></div>
+    <div className="home-bottom"><div className="community-strip"><span className="community-symbol">❋</span><div><h3>Built around real Farcaster people.</h3><p>One identity across your social feed, 3D channels, and arcade games.</p></div><button onClick={()=>onTab('feed')}>Open social feed <ArrowRight size={17}/></button></div></div>
   </div>;
 }
 function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
@@ -276,7 +276,7 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
         })
       );
 
-      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} ₡DEGEN (+5 Clout, +5 Vibe)!`);
+      notify(`Tipped @${cast.author?.username || 'caster'} ${amount} DEGEN (+5 Clout, +5 Vibe)!`);
       setTipTargetHash(null);
     } catch (err) {
       notify(err.message || 'Tip failed');
@@ -415,15 +415,15 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
               <button
                 className={`cast-tip-btn ${tipTargetHash === c.hash ? 'active' : ''}`}
                 onClick={() => setTipTargetHash(tipTargetHash === c.hash ? null : c.hash)}
-                title="Tip author ₡DEGEN"
+                title="Tip author DEGEN"
               >
-                🪙 Tip
+                🎩 Tip DEGEN
               </button>
             )}
           </div>
           {tipTargetHash === c.hash && (
             <div className="cast-tip-panel" style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:'rgba(255,215,0,0.08)',borderRadius:8,margin:'6px 0',border:'1px solid rgba(255,215,0,0.2)'}}>
-              <span style={{fontSize:12,fontWeight:600,color:'#ffd700'}}>Tip @{c.author?.username || 'author'}:</span>
+              <span style={{fontSize:12,fontWeight:600,color:'#ffd700'}}>Tip @{c.author?.username || 'author'} in DEGEN:</span>
               {[10, 50, 100].map(amt => (
                 <button
                   key={amt}
@@ -432,7 +432,7 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
                   disabled={tipLoading && pendingTipHash === c.hash}
                   onClick={() => tipCastInFeed(c, amt)}
                 >
-                  {tipLoading && pendingTipHash === c.hash && pendingTipAmount === amt ? '…' : `${amt} ₡DEGEN`}
+                  {tipLoading && pendingTipHash === c.hash && pendingTipAmount === amt ? '…' : `${amt} DEGEN`}
                 </button>
               ))}
               <button
@@ -461,7 +461,7 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
       <div className="aside-card violet-aside"><span className="eyebrow">YOUR SPACE</span><h3>People, not just posts.</h3><p>One Farcaster identity across your feed and 3D channels.</p><span className="aside-decoration">✳</span></div>
       <div className="aside-card">
         <h3>Simcaster Social</h3>
-        <p>Your account can post, reply, quote, like, and recast directly inside Simcaster.</p>
+        <p>Post, reply, quote, like, recast, and tip DEGEN directly inside Simcaster.</p>
         <div style={{marginTop:10,color:'#6cdbc4',fontSize:13,display:'flex',alignItems:'center',gap:6}}>
           <span>✓</span> <strong>In-app social active</strong>
         </div>
@@ -469,13 +469,426 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
     </aside></div>
   </div>;
 }
-function Arcade({onPlay,leaderboard}) {
-  return <div className="page-content"><div className="section-heading page-heading"><div><span className="eyebrow">PRESS START. MAKE MEMORIES.</span><h2>Welcome to the arcade. 🕹️</h2><p>Friendly competition is always welcome around here.</p></div><span className="arcade-live"><span className="live-pulse"/> 1 playable game</span></div>
-    <div className="featured-game"><div className="game-feature-copy"><span className="hero-pill">✦ FEATURED MULTIPLAYER GAME</span><h2>LASER<br/><em>TAG.</em></h2><p>Run, aim, and tag your way to the top. First to 7 points wins. Bring a friend — or find a challenger online.</p><div className="game-details"><span><Users size={15}/> 2–8 players</span><span><Clock3 size={15}/> 3 min rounds</span><span><Zap size={15}/> Real-time action</span></div><button className="primary-btn" onClick={onPlay}><Play size={17} fill="currentColor"/> Play now <ArrowUpRight size={17}/></button></div><div className="game-art"><div className="game-art-ring"/><div className="game-art-blaster">⌁</div><div className="game-art-target">◎</div><span className="game-art-caption">READY, AIM, PLAY!</span></div></div>
-    <div className="section-heading"><div><span className="eyebrow">WHAT'S NEXT</span><h2>More ways to play.</h2></div></div>
-    <div className="more-games"><div className="soon-card"><span>🏎️</span><h3>Street Sprint</h3><p>Race around the city</p><small>COMING SOON</small></div><div className="soon-card"><span>🎯</span><h3>Trivia Night</h3><p>Show off what you know</p><small>COMING SOON</small></div><div className="soon-card"><span>🎲</span><h3>Party Games</h3><p>Make game night a thing</p><small>COMING SOON</small></div></div>
+
+const TRIVIA_QUESTIONS = [
+  {
+    q: 'Which Farcaster channel is the home district for builders shipping mini-apps and protocol code?',
+    options: ['/dev', '/fitness', '/cooking', '/travel'],
+    answer: 0
+  },
+  {
+    q: 'What community currency powers tipping, activities, and arcade rewards across Simcaster?',
+    options: ['DEGEN', 'Paper Coupons', 'Silver Nickels', 'Bus Tokens'],
+    answer: 0
+  },
+  {
+    q: 'Which badge grants Farcaster users free VIP entry to the Purple Rooftop Lounge?',
+    options: ['🟣 Power Badge', '🟢 Bronze Ticket', '🔵 Parking Permit', '⚪ Guest Sticker'],
+    answer: 0
+  },
+  {
+    q: 'What happens when you interact with furniture inside your 3D Apartment?',
+    options: ['You earn DEGEN and boost your Energy, Vibe & Clout', 'Nothing happens', 'It deletes your room', 'It logs you out'],
+    answer: 0
+  },
+  {
+    q: 'In the 3D Laser Tag Arena, how can you earn DEGEN even if no other human player is in the room?',
+    options: ['Tag the 3 AI Arena Bots (+15 DEGEN per hit, +60 DEGEN per knockdown)', 'Wait in the corner', 'Turn off your monitor', 'Unplug your keyboard'],
+    answer: 0
+  }
+];
+
+function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboard}) {
+  const [activeGame, setActiveGame] = useState('trivia');
+  const [claiming, setClaiming] = useState(false);
+
+  // Game 2: Channel Trivia Blitz state
+  const [qIndex, setQIndex] = useState(0);
+  const [triviaScore, setTriviaScore] = useState(0);
+  const [triviaDone, setTriviaDone] = useState(false);
+  const [triviaFeedback, setTriviaFeedback] = useState('');
+
+  // Game 3: Degen Catcher state
+  const [catcherRunning, setCatcherRunning] = useState(false);
+  const [catcherTime, setCatcherTime] = useState(15);
+  const [catcherScore, setCatcherScore] = useState(0);
+  const [catcherTargets, setCatcherTargets] = useState([
+    { id: 1, icon: '🎩', label: '+25 DEGEN', val: 25, x: 18, y: 28 },
+    { id: 2, icon: '🟣', label: '+35 DEGEN', val: 35, x: 52, y: 45 },
+    { id: 3, icon: '⚡', label: '+20 DEGEN', val: 20, x: 76, y: 24 },
+    { id: 4, icon: '💎', label: '+40 DEGEN', val: 40, x: 34, y: 66 }
+  ]);
+
+  // Game 4: Onchain Tower Stacker state
+  const [stackFloors, setStackFloors] = useState(1);
+  const [stackSlider, setStackSlider] = useState(50);
+  const [stackDir, setStackDir] = useState(1);
+  const [stackStatus, setStackStatus] = useState('Drop blocks inside the purple target zone to stack DEGEN!');
+
+  useEffect(() => {
+    if (!catcherRunning) return;
+    const timer = setInterval(() => {
+      setCatcherTime((prev) => {
+        if (prev <= 1) {
+          setCatcherRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [catcherRunning]);
+
+  useEffect(() => {
+    if (activeGame !== 'stacker') return;
+    const timer = setInterval(() => {
+      setStackSlider((prev) => {
+        let next = prev + stackDir * 4.5;
+        if (next >= 92) {
+          setStackDir(-1);
+          next = 92;
+        } else if (next <= 8) {
+          setStackDir(1);
+          next = 8;
+        }
+        return next;
+      });
+    }, 45);
+    return () => clearInterval(timer);
+  }, [activeGame, stackDir]);
+
+  async function claimArcadeDegen(gameName, amount, onReset) {
+    if (claiming || amount <= 0) return;
+    try {
+      setClaiming(true);
+      const res = await api('/arcade/reward', {
+        method: 'POST',
+        body: JSON.stringify({ game: gameName, reward: amount })
+      });
+      soundEngine.playPromotion();
+      if (res.user && onUserUpdate) onUserUpdate(res.user);
+      if (onRefreshLeaderboard) onRefreshLeaderboard();
+      const earned = res.reward ?? res.rewardCreds ?? amount;
+      const earnedXp = res.rewardXp ?? 20;
+      notify(`🎉 Won +${earned} DEGEN & +${earnedXp} XP in ${gameName}!`);
+      if (onReset) onReset();
+    } catch (e) {
+      notify(e.message);
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  function answerTrivia(optIndex) {
+    if (triviaDone) return;
+    const currentQ = TRIVIA_QUESTIONS[qIndex];
+    const correct = optIndex === currentQ.answer;
+    const delta = correct ? 40 : 15;
+    const nextScore = triviaScore + delta;
+    setTriviaScore(nextScore);
+    if (correct) {
+      soundEngine.playCash();
+      setTriviaFeedback(`✓ Correct! +${delta} DEGEN added to your pot.`);
+    } else {
+      soundEngine.playClick();
+      setTriviaFeedback(`Good try! +${delta} DEGEN participation bonus added.`);
+    }
+    if (qIndex + 1 >= TRIVIA_QUESTIONS.length) {
+      setTriviaDone(true);
+    } else {
+      setQIndex((prev) => prev + 1);
+    }
+  }
+
+  function hitCatcherTarget(target) {
+    soundEngine.playCash();
+    if (!catcherRunning && catcherTime === 15) setCatcherRunning(true);
+    setCatcherScore((prev) => prev + target.val);
+    const icons = [
+      { icon: '🎩', label: '+25 DEGEN', val: 25 },
+      { icon: '🟣', label: '+35 DEGEN', val: 35 },
+      { icon: '⚡', label: '+20 DEGEN', val: 20 },
+      { icon: '💎', label: '+40 DEGEN', val: 40 }
+    ];
+    const pick = icons[Math.floor(Math.random() * icons.length)];
+    setCatcherTargets((prev) =>
+      prev.map((item) =>
+        item.id === target.id
+          ? {
+              ...pick,
+              id: Date.now() + Math.random(),
+              x: 12 + Math.floor(Math.random() * 74),
+              y: 16 + Math.floor(Math.random() * 66)
+            }
+          : item
+      )
+    );
+  }
+
+  function dropStackBlock() {
+    const inZone = stackSlider >= 24 && stackSlider <= 76;
+    if (inZone) {
+      soundEngine.playCash();
+      const nextFloors = Math.min(8, stackFloors + 1);
+      setStackFloors(nextFloors);
+      setStackStatus(`🔥 Stacked Floor #${nextFloors}! Pot is now ${nextFloors * 30} DEGEN.`);
+    } else {
+      soundEngine.playClick();
+      const nextFloors = Math.min(8, stackFloors + 1);
+      setStackFloors(nextFloors);
+      setStackStatus(`⚡ Glitched edge block stabilized! Floor #${nextFloors} (${nextFloors * 30} DEGEN).`);
+    }
+  }
+
+  const creds = user?.creds ?? 250;
+
+  return <div className="page-content arcade-page">
+    <div className="section-heading page-heading">
+      <div>
+        <span className="eyebrow">PLAY GAMES · STACK DEGEN</span>
+        <h2>Simcaster Arcade 🕹️</h2>
+        <p>All 4 games are live and pay out instant DEGEN to your wallet.</p>
+      </div>
+      <div style={{display:'flex',gap:10,alignItems:'center'}}>
+        <span className="arcade-wallet-pill">🎩 {creds.toLocaleString()} DEGEN</span>
+        <span className="arcade-live"><span className="live-pulse"/> 4 playable games</span>
+      </div>
+    </div>
+
+    <div className="featured-game">
+      <div className="game-feature-copy">
+        <span className="hero-pill">✦ 3D ARENA · SOLO & MULTIPLAYER</span>
+        <h2>LASER<br/><em>TAG ARENA.</em></h2>
+        <p>Jump into the 3D neon arena against live players and 3 AI Arena Bots (Nova Bot, Byte Striker, Glitch Runner). Click any target or press Space to fire — earn +15 DEGEN per hit, +60 DEGEN per knockdown, and +150 DEGEN per win!</p>
+        <div className="game-details">
+          <span><Users size={15}/> 1–8 players + 3 AI Bots</span>
+          <span><Clock3 size={15}/> Instant action</span>
+          <span><Zap size={15}/> +15 to +150 DEGEN</span>
+        </div>
+        <button className="primary-btn" onClick={onPlay}><Play size={17} fill="currentColor"/> Enter 3D Laser Tag Arena <ArrowUpRight size={17}/></button>
+      </div>
+      <div className="game-art">
+        <div className="game-art-ring"/><div className="game-art-blaster">⌁</div><div className="game-art-target">◎</div>
+        <span className="game-art-caption">CLICK TARGETS OR PRESS SPACE TO TAG!</span>
+      </div>
+    </div>
+
+    <div className="section-heading">
+      <div>
+        <span className="eyebrow">INSTANT PLAY MINI-GAMES</span>
+        <h2>Play right here & earn DEGEN</h2>
+      </div>
+    </div>
+
+    <div className="more-games playable-games-grid">
+      <button
+        type="button"
+        className={'playable-game-card ' + (activeGame === 'trivia' ? 'active' : '')}
+        onClick={() => { soundEngine.playClick(); setActiveGame('trivia'); }}
+      >
+        <span className="game-card-emoji">🎯</span>
+        <div className="game-card-meta">
+          <span className="game-reward-tag">UP TO +200 DEGEN</span>
+          <h3>Channel Trivia Blitz</h3>
+          <p>Answer fast Farcaster & channel trivia questions for instant DEGEN payouts.</p>
+        </div>
+        <span className="game-play-pill">{activeGame === 'trivia' ? 'Playing Below ↓' : 'Play Now →'}</span>
+      </button>
+
+      <button
+        type="button"
+        className={'playable-game-card ' + (activeGame === 'catcher' ? 'active' : '')}
+        onClick={() => { soundEngine.playClick(); setActiveGame('catcher'); }}
+      >
+        <span className="game-card-emoji">🎩</span>
+        <div className="game-card-meta">
+          <span className="game-reward-tag">UP TO +260 DEGEN</span>
+          <h3>Degen Catcher</h3>
+          <p>Tap falling 🎩 DEGEN hats, 🟣 Power Badges & ⚡ Warps to build your combo pot.</p>
+        </div>
+        <span className="game-play-pill">{activeGame === 'catcher' ? 'Playing Below ↓' : 'Play Now →'}</span>
+      </button>
+
+      <button
+        type="button"
+        className={'playable-game-card ' + (activeGame === 'stacker' ? 'active' : '')}
+        onClick={() => { soundEngine.playClick(); setActiveGame('stacker'); }}
+      >
+        <span className="game-card-emoji">🏗️</span>
+        <div className="game-card-meta">
+          <span className="game-reward-tag">+30 DEGEN / FLOOR</span>
+          <h3>Onchain Tower Stacker</h3>
+          <p>Time your block drops to stack the tallest Farcaster tower and cash out DEGEN.</p>
+        </div>
+        <span className="game-play-pill">{activeGame === 'stacker' ? 'Playing Below ↓' : 'Play Now →'}</span>
+      </button>
+    </div>
+
+    <div className="arcade-stage-card" role="region" aria-label="Active Arcade Mini-Game">
+      {activeGame === 'trivia' && (
+        <div className="mini-game-shell">
+          <div className="mini-game-head">
+            <div>
+              <span className="eyebrow">GAME 2 · CHANNEL TRIVIA BLITZ</span>
+              <h3>Question {Math.min(qIndex + 1, TRIVIA_QUESTIONS.length)} of {TRIVIA_QUESTIONS.length}</h3>
+            </div>
+            <div className="mini-game-pot">Pot: <strong>🎩 {triviaScore} DEGEN</strong></div>
+          </div>
+          {!triviaDone ? (
+            <>
+              <p className="trivia-question-text">{TRIVIA_QUESTIONS[qIndex].q}</p>
+              <div className="trivia-options-grid">
+                {TRIVIA_QUESTIONS[qIndex].options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="trivia-option-btn"
+                    onClick={() => answerTrivia(idx)}
+                  >
+                    <span>{String.fromCharCode(65 + idx)}.</span> {opt}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="mini-game-complete">
+              <h4>🎉 Round Complete! You stacked {triviaScore} DEGEN!</h4>
+              <p>Claim your DEGEN reward to add it to your wallet and climb the Hall of Fame.</p>
+            </div>
+          )}
+          {triviaFeedback && <div className="mini-game-feedback">{triviaFeedback}</div>}
+          <div className="mini-game-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              disabled={claiming || triviaScore <= 0}
+              onClick={() =>
+                claimArcadeDegen('Channel Trivia Blitz', triviaScore, () => {
+                  setQIndex(0);
+                  setTriviaScore(0);
+                  setTriviaDone(false);
+                  setTriviaFeedback('');
+                })
+              }
+            >
+              {claiming ? 'Claiming…' : `Claim +${triviaScore || 0} DEGEN Reward`}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                setQIndex(0);
+                setTriviaScore(0);
+                setTriviaDone(false);
+                setTriviaFeedback('');
+              }}
+            >
+              Reset Round
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeGame === 'catcher' && (
+        <div className="mini-game-shell">
+          <div className="mini-game-head">
+            <div>
+              <span className="eyebrow">GAME 3 · DEGEN CATCHER</span>
+              <h3>Click the targets to catch DEGEN! ({catcherTime}s left)</h3>
+            </div>
+            <div className="mini-game-pot">Caught: <strong>🎩 {catcherScore} DEGEN</strong></div>
+          </div>
+          <div className="catcher-arena">
+            {catcherTargets.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="catcher-target-btn"
+                style={{ left: `${t.x}%`, top: `${t.y}%` }}
+                onClick={() => hitCatcherTarget(t)}
+              >
+                <span className="catcher-emoji">{t.icon}</span>
+                <small>{t.label}</small>
+              </button>
+            ))}
+          </div>
+          <div className="mini-game-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              disabled={claiming || catcherScore <= 0}
+              onClick={() =>
+                claimArcadeDegen('Degen Catcher', catcherScore, () => {
+                  setCatcherScore(0);
+                  setCatcherTime(15);
+                  setCatcherRunning(false);
+                })
+              }
+            >
+              {claiming ? 'Claiming…' : `Cash Out +${catcherScore} DEGEN`}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                setCatcherScore(0);
+                setCatcherTime(15);
+                setCatcherRunning(true);
+              }}
+            >
+              New 15s Round
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeGame === 'stacker' && (
+        <div className="mini-game-shell">
+          <div className="mini-game-head">
+            <div>
+              <span className="eyebrow">GAME 4 · ONCHAIN TOWER STACKER</span>
+              <h3>Tower Height: {stackFloors} / 8 Floors</h3>
+            </div>
+            <div className="mini-game-pot">Tower Value: <strong>🎩 {stackFloors * 30} DEGEN</strong></div>
+          </div>
+          <p style={{margin:'0 0 10px',color:'#5c5375'}}>{stackStatus}</p>
+          <div className="stacker-track">
+            <div className="stacker-target-zone">TARGET ZONE</div>
+            <div className="stacker-slider-block" style={{ left: `${stackSlider}%` }}>
+              🟣 BLOCK
+            </div>
+          </div>
+          <div className="stacker-tower-preview">
+            {Array.from({ length: stackFloors }, (_, i) => (
+              <div key={i} className="stacker-floor-bar" style={{ width: `${Math.max(36, 78 - i * 4)}%` }}>
+                Floor #{i + 1} (+30 DEGEN)
+              </div>
+            ))}
+          </div>
+          <div className="mini-game-actions">
+            <button type="button" className="secondary-btn" onClick={dropStackBlock}>
+              ⚡ Drop Block (+30 DEGEN)
+            </button>
+            <button
+              type="button"
+              className="primary-btn"
+              disabled={claiming}
+              onClick={() =>
+                claimArcadeDegen('Tower Stacker', stackFloors * 30, () => {
+                  setStackFloors(1);
+                  setStackStatus('Tower cashed out! Drop another block to start stacking.');
+                })
+              }
+            >
+              {claiming ? 'Claiming…' : `Claim +${stackFloors * 30} DEGEN`}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+
     <div className="leaderboard"><div className="section-heading"><div><span className="eyebrow">BRAGGING RIGHTS</span><h2>Hall of fame</h2></div><Crown size={23} color="#c69e42"/></div>
-    {leaderboard.length?leaderboard.map((p,i)=><div className="leader-row" key={p.fid}><span>#{i+1}</span><AvatarBubble name={p.displayName}/><b>{p.displayName}</b><strong>{p.wins} wins</strong></div>):<div className="empty-leader">No champions yet. Play a match to claim the first spot.</div>}
+    {leaderboard.length?leaderboard.map((p,i)=><div className="leader-row" key={p.fid}><span>#{i+1}</span><AvatarBubble name={p.displayName}/><b>{p.displayName}</b><strong>{p.wins} wins</strong></div>):<div className="empty-leader">No champions yet. Play any game above to claim the first spot!</div>}
     </div>
   </div>;
 }
@@ -534,7 +947,7 @@ function HomeSpace({user,onUserUpdate,ownerFid=null,notify,onArcade,onBack,onOpe
     update({items:[...home.items.slice(0,-1),{...last,rot:nextRot}]});
   }
   return <div className="home-space"><div className="home-editor">
-    <div><span className="eyebrow">{isOwner?`${tier.toUpperCase()} APARTMENT (${home.items.length}/${maxItems} ITEMS)`:'VISITING A FRIEND'}</span><h3>{isOwner?'Decorate & use your space 🪴':'Welcome to your friend’s apartment 🏠'}</h3><p>{isOwner?'Click any placed 3D furniture in the room to use it (rest, brew espresso, spin sets, or hustle)!':'You can chat and use furniture here. Only the owner can redecorate.'}</p></div>
+    <div><span className="eyebrow">{isOwner?`${tier.toUpperCase()} APARTMENT (${home.items.length}/${maxItems} ITEMS)`:'VISITING A FRIEND'}</span><h3>{isOwner?'Decorate & use your space 🪴':'Welcome to your friend’s apartment 🏠'}</h3><p>{isOwner?'Click any placed 3D furniture in the room to use it and earn DEGEN!':'You can chat and use furniture here to earn DEGEN. Only the owner can redecorate.'}</p></div>
     {isOwner&&<div className="furniture-row">
       {furniture.filter(item=>owned.has(item.type)).map((item)=><button disabled={busy||home.items.length>=maxItems} key={item.type} onClick={()=>update({items:[...home.items,{type:item.type,x:(home.items.length%cols)-bound,z:(Math.floor(home.items.length/cols)%cols)-bound}]})}><span>{item.emoji}</span> {item.type.replace('_',' ')}</button>)}
       <button disabled={!home.items.length||busy} onClick={rotateLast} title="Rotate last furniture 90°"><RotateCw size={14}/> Rotate</button>
@@ -640,7 +1053,7 @@ function App(){
         tab==='feed'?<SocialFeed user={user} onUserUpdate={setUser} notify={notify} writeClientId={config.writeClientId}/>:
         tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening 3D channels…</div>}><WorldView user={user} onUserUpdate={setUser} kind="plaza" initialChannel={targetChannel} onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} onUserUpdate={setUser} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
-        tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:
+        tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard} user={user} onUserUpdate={setUser} notify={notify} onRefreshLeaderboard={()=>api('/leaderboard').then(r=>setLeaderboard(r.players)).catch(()=>{})}/>:
         tab==='profile'?<Profile user={user} onUser={setUser} notify={notify}/>:
         tab==='friends'?<FriendsPage user={user} notify={notify} onWorld={()=>setTab('world')} onVisit={fid=>{setVisitingFid(fid);setTab('home-space');}}/>:
         tab==='home-space'?<HomeSpace user={user} onUserUpdate={setUser} ownerFid={visitingFid} notify={notify} onBack={()=>setTab(visitingFid?'friends':'home')} onArcade={()=>setTab('arcade')} onOpenShop={()=>openPhone('shop')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}}/>:

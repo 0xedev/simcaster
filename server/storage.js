@@ -30,18 +30,18 @@ const accessories = ['none', 'glasses', 'cap', 'headphones', 'earrings'];
 const builds = ['regular', 'slim', 'broad'];
 
 export const FURNITURE_CATALOG = [
-  { type: 'sofa', label: 'Lounge Sofa', emoji: '🛋️', price: 0, effect: 'Rest (+18 Energy, +10 Vibe)' },
-  { type: 'table', label: 'Oak Table', emoji: '🪵', price: 0, effect: 'Gather & chat' },
-  { type: 'plant', label: 'Monstera Plant', emoji: '🪴', price: 0, effect: 'Fresh air (+8 Vibe)' },
-  { type: 'lamp', label: 'Warm Floor Lamp', emoji: '💡', price: 0, effect: 'Cozy mood (+6 Vibe)' },
-  { type: 'rug', label: 'Woven Rug', emoji: '🧶', price: 0, effect: 'Room centerpiece' },
-  { type: 'chair', label: 'Accent Chair', emoji: '🪑', price: 0, effect: 'Quick sit (+10 Energy)' },
-  { type: 'bed', label: 'Cloud Bed', emoji: '🛏️', price: 60, effect: 'Power nap (+40 Energy)' },
-  { type: 'espresso_bar', label: 'Artisan Espresso Bar', emoji: '☕', price: 85, effect: 'Refuel (+28 Energy, +30 Hunger)' },
-  { type: 'dj_booth', label: 'Synthwave DJ Decks', emoji: '🎧', price: 150, effect: 'House party (+38 Vibe, +10 Clout)' },
-  { type: 'arcade_cabinet', label: 'Retro Arcade Rig', emoji: '🕹️', price: 180, effect: 'Practice (+30 Vibe, +6 Clout)' },
-  { type: 'work_desk', label: 'Creator Studio Desk', emoji: '🖥️', price: 110, effect: 'Remote hustle (+₡35, +10 XP)' },
-  { type: 'neon_sign', label: 'Farcaster Neon Sign', emoji: '✨', price: 75, effect: 'Flex (+15 Vibe, +12 Clout)' }
+  { type: 'sofa', label: 'Lounge Sofa', emoji: '🛋️', price: 0, effect: 'Rest (+25 DEGEN, +20 Energy, +12 Vibe)' },
+  { type: 'table', label: 'Oak Table', emoji: '🪵', price: 0, effect: 'Host hangout (+20 DEGEN, +10 Vibe)' },
+  { type: 'plant', label: 'Monstera Plant', emoji: '🪴', price: 0, effect: 'Fresh air (+20 DEGEN, +12 Vibe)' },
+  { type: 'lamp', label: 'Warm Floor Lamp', emoji: '💡', price: 0, effect: 'Cozy mood (+20 DEGEN, +10 Vibe)' },
+  { type: 'rug', label: 'Woven Rug', emoji: '🧶', price: 0, effect: 'Chill session (+20 DEGEN, +10 Vibe)' },
+  { type: 'chair', label: 'Accent Chair', emoji: '🪑', price: 0, effect: 'Quick break (+25 DEGEN, +15 Energy)' },
+  { type: 'bed', label: 'Cloud Bed', emoji: '🛏️', price: 60, effect: 'Power nap (+40 DEGEN, +45 Energy)' },
+  { type: 'espresso_bar', label: 'Artisan Espresso Bar', emoji: '☕', price: 85, effect: 'Refuel (+50 DEGEN, +35 Energy, +35 Hunger)' },
+  { type: 'dj_booth', label: 'Synthwave DJ Decks', emoji: '🎧', price: 150, effect: 'House party (+70 DEGEN, +40 Vibe, +12 Clout)' },
+  { type: 'arcade_cabinet', label: 'Retro Arcade Rig', emoji: '🕹️', price: 180, effect: 'High score run (+75 DEGEN, +35 Vibe, +10 Clout)' },
+  { type: 'work_desk', label: 'Creator Studio Desk', emoji: '🖥️', price: 110, effect: 'Remote build (+80 DEGEN, +20 XP)' },
+  { type: 'neon_sign', label: 'Farcaster Neon Sign', emoji: '✨', price: 75, effect: 'Channel flex (+45 DEGEN, +20 Vibe, +14 Clout)' }
 ];
 
 export const HOME_TIERS = {
@@ -51,9 +51,9 @@ export const HOME_TIERS = {
 };
 
 export const CITY_POLICIES = {
-  creator_stimulus: { id: 'creator_stimulus', label: 'Creator Stimulus', description: '+25% Creds on all Plaza shifts & creator gigs' },
-  zero_cafe_tax: { id: 'zero_cafe_tax', label: 'Zero Café Tax', description: '50% off Café & Market snacks + bonus Energy' },
-  arcade_fever: { id: 'arcade_fever', label: 'Arcade Fever', description: '2x Creds & Clout for Laser Tag match winners' }
+  creator_stimulus: { id: 'creator_stimulus', label: 'Creator Stimulus', description: '+25% DEGEN on all Channel activities & creator gigs' },
+  zero_cafe_tax: { id: 'zero_cafe_tax', label: 'Zero Café Tax', description: '50% off VIP & venue fees + bonus Energy' },
+  arcade_fever: { id: 'arcade_fever', label: 'Arcade Fever', description: '2x DEGEN & Clout for all Arcade games' }
 };
 
 export const SUPPORTED_CURRENCIES = ['degen', 'moxie', 'warps', 'creds'];
@@ -396,6 +396,7 @@ export class Store {
     }
     state.claimed = true;
     user.creds += quest.rewardCreds;
+    user.currencies.creds = user.creds;
     user.xp += quest.rewardXp;
     const nextTier = careerForXp(user.xp);
     const promoted = nextTier.id !== user.career ? nextTier.title : null;
@@ -596,8 +597,9 @@ export class Store {
     const entry = FURNITURE_CATALOG.find((f) => f.type === itemType);
     if (!entry) throw new Error('Unknown furniture item');
     if (user.ownedFurniture.includes(itemType)) throw new Error('You already own this item');
-    if (user.creds < entry.price) throw new Error(`Not enough Creds (need ₡${entry.price})`);
+    if (user.creds < entry.price) throw new Error(`Not enough DEGEN (need ${entry.price} DEGEN)`);
     user.creds -= entry.price;
+    user.currencies.creds = user.creds;
     user.ownedFurniture.push(itemType);
     user.needs.vibe = clamp(user.needs.vibe + 6, 0, 100);
     this.save();
@@ -613,8 +615,9 @@ export class Store {
     if (order.indexOf(targetTier) <= order.indexOf(user.homeTier)) {
       throw new Error('You already own this tier or higher');
     }
-    if (user.creds < tier.price) throw new Error(`Need ₡${tier.price} Creds to upgrade to ${tier.name}`);
+    if (user.creds < tier.price) throw new Error(`Need ${tier.price} DEGEN to upgrade to ${tier.name}`);
     user.creds -= tier.price;
+    user.currencies.creds = user.creds;
     user.homeTier = targetTier;
     user.needs.clout = clamp(user.needs.clout + 20, 0, 100);
     user.needs.vibe = clamp(user.needs.vibe + 15, 0, 100);
@@ -640,10 +643,7 @@ export class Store {
       cost = Math.max(1, Math.floor(cost * 0.5));
     }
     if (user.creds < cost) {
-      throw new Error(`You need ₡${cost} Creds for ${action.label}`);
-    }
-    if (action.energy < 0 && user.needs.energy < Math.abs(action.energy)) {
-      throw new Error('Too exhausted! Grab food at Warp Café, visit the Power Hub, or rest at home.');
+      throw new Error(`You need ${cost} DEGEN for ${action.label}`);
     }
 
     const tier = careerForXp(user.xp);
@@ -652,19 +652,21 @@ export class Store {
       pay = Math.round(pay * 1.25);
     }
     if (hotspotId === 'power-grid' && blackoutActive) {
-      pay += 70; // Hero bonus for restoring the Farcaster Hub Relay Core during an outage
+      pay += 90; // Hero bonus for restoring the Farcaster Hub Relay Core during an outage
     }
 
-    user.creds = Math.max(0, user.creds - cost + pay);
+    const delta = pay - cost;
+    user.creds = Math.max(0, user.creds + delta);
+    user.currencies.creds = user.creds;
     user.xp += action.xp || 0;
     const nextTier = careerForXp(user.xp);
     const promoted = nextTier.id !== user.career;
     user.career = nextTier.id;
 
     const bonusEnergy = policy === 'zero_cafe_tax' && action.energy > 0 ? 8 : 0;
-    user.needs.energy = clamp(user.needs.energy + (action.energy || 0) + bonusEnergy, 0, 100);
-    user.needs.hunger = clamp(user.needs.hunger + (action.hunger || 0), 0, 100);
-    user.needs.vibe = clamp(user.needs.vibe + (action.vibe || 0), 0, 100);
+    user.needs.energy = clamp(user.needs.energy + (action.energy || 0) + bonusEnergy, 10, 100);
+    user.needs.hunger = clamp(user.needs.hunger + (action.hunger || 0), 10, 100);
+    user.needs.vibe = clamp(user.needs.vibe + (action.vibe || 0), 10, 100);
     user.needs.clout = clamp(user.needs.clout + (action.clout || 0), 0, 100);
 
     this.recordQuestProgress(fid, 'hustle_shifts', 1);
@@ -673,7 +675,7 @@ export class Store {
       user,
       hotspot: hotspot.name,
       action: action.label,
-      deltaCreds: pay - cost,
+      deltaCreds: delta,
       promoted: promoted ? nextTier.title : null
     };
   }
@@ -683,27 +685,34 @@ export class Store {
     if (!user) throw new Error('User not found');
     const entry = FURNITURE_CATALOG.find((f) => f.type === itemType);
     if (!entry) throw new Error('Unknown furniture');
+    let earnedDegen = 25;
     if (itemType === 'bed' || itemType === 'sofa' || itemType === 'chair') {
-      user.needs.energy = clamp(user.needs.energy + (itemType === 'bed' ? 40 : 18), 0, 100);
-      user.needs.vibe = clamp(user.needs.vibe + 8, 0, 100);
+      earnedDegen = itemType === 'bed' ? 40 : 25;
+      user.needs.energy = clamp(user.needs.energy + (itemType === 'bed' ? 45 : 20), 0, 100);
+      user.needs.vibe = clamp(user.needs.vibe + 12, 0, 100);
     } else if (itemType === 'espresso_bar') {
-      user.needs.energy = clamp(user.needs.energy + 28, 0, 100);
-      user.needs.hunger = clamp(user.needs.hunger + 30, 0, 100);
+      earnedDegen = 50;
+      user.needs.energy = clamp(user.needs.energy + 35, 0, 100);
+      user.needs.hunger = clamp(user.needs.hunger + 35, 0, 100);
     } else if (itemType === 'dj_booth' || itemType === 'neon_sign' || itemType === 'arcade_cabinet') {
-      user.needs.vibe = clamp(user.needs.vibe + 32, 0, 100);
-      user.needs.clout = clamp(user.needs.clout + 10, 0, 100);
+      earnedDegen = itemType === 'arcade_cabinet' ? 75 : itemType === 'dj_booth' ? 70 : 45;
+      user.needs.vibe = clamp(user.needs.vibe + 35, 0, 100);
+      user.needs.clout = clamp(user.needs.clout + 12, 0, 100);
     } else if (itemType === 'work_desk') {
-      if (user.needs.energy < 15) throw new Error('Rest on your bed or sofa before working!');
-      user.needs.energy = clamp(user.needs.energy - 15, 0, 100);
-      user.creds += 35;
-      user.xp += 10;
-      user.career = careerForXp(user.xp).id;
+      earnedDegen = 80;
+      user.needs.energy = clamp(user.needs.energy - 8, 10, 100);
     } else {
-      user.needs.vibe = clamp(user.needs.vibe + 6, 0, 100);
+      earnedDegen = 20;
+      user.needs.vibe = clamp(user.needs.vibe + 10, 0, 100);
     }
+    user.creds += earnedDegen;
+    user.currencies.creds = user.creds;
+    user.currencies.degen = (user.currencies.degen || 0) + earnedDegen;
+    user.xp += 12;
+    user.career = careerForXp(user.xp).id;
     this.recordQuestProgress(fid, 'civic_life', 1);
     this.saveDebounced();
-    return { user, effect: entry.effect };
+    return { user, effect: entry.effect, deltaCreds: earnedDegen };
   }
 
   tickPlayerNeeds(fid) {
@@ -1050,13 +1059,45 @@ export class Store {
     const user = this.findUser(fid);
     if (user) {
       const mult = this.cityStatus().activePolicy === 'arcade_fever' ? 2 : 1;
-      user.creds += 100 * mult;
-      user.xp += 30 * mult;
+      const prize = 150 * mult;
+      user.creds += prize;
+      user.currencies.creds = user.creds;
+      user.currencies.degen = (user.currencies.degen || 0) + prize;
+      user.xp += 35 * mult;
       user.career = careerForXp(user.xp).id;
       user.needs.clout = clamp(user.needs.clout + 15 * mult, 0, 100);
-      user.needs.vibe = clamp(user.needs.vibe + 20, 0, 100);
+      user.needs.vibe = clamp(user.needs.vibe + 25, 0, 100);
     }
     this.save();
+  }
+
+  recordArcadeReward(fid, game = 'arcade', rawReward = 50) {
+    const user = this.findUser(fid);
+    if (!user) throw new Error('User not found');
+    const mult = this.cityStatus().activePolicy === 'arcade_fever' ? 2 : 1;
+    const base = clamp(Math.round(Number(rawReward) || 50), 15, 260);
+    const reward = Math.round(base * mult);
+    user.creds += reward;
+    user.currencies.creds = user.creds;
+    user.currencies.degen = (user.currencies.degen || 0) + reward;
+    user.xp += 20;
+    const nextTier = careerForXp(user.xp);
+    const promoted = nextTier.id !== user.career ? nextTier.title : null;
+    user.career = nextTier.id;
+    user.needs.vibe = clamp(user.needs.vibe + 18, 0, 100);
+    user.needs.clout = clamp(user.needs.clout + 10, 0, 100);
+    if (base >= 50) {
+      const key = String(fid);
+      this.state.scores[key] = (this.state.scores[key] || 0) + 1;
+    }
+    this.recordQuestProgress(fid, 'arena_tags', 1);
+    this.save();
+    return {
+      user,
+      game: String(game || 'arcade').slice(0, 32),
+      reward,
+      promoted
+    };
   }
 
   leaderboard() {

@@ -52,10 +52,10 @@ const DEFAULT_HOTSPOTS = [
     z: -10.8,
     color: '#e9a9bd',
     icon: '☕',
-    tagline: 'Refuel with artisan espresso & matcha or work a barista shift',
+    tagline: 'Grab artisan espresso or brew specialty pours to earn DEGEN',
     actions: [
-      { id: 'eat', label: 'Order Espresso & Pastry (₡15)', cost: 15, pay: 0 },
-      { id: 'work', label: 'Work Barista Shift (+₡45)', cost: 0, pay: 45 }
+      { id: 'eat', label: 'Tasting Flight (+30 DEGEN)', cost: 0, pay: 30 },
+      { id: 'work', label: 'Head Barista Shift (+75 DEGEN)', cost: 0, pay: 75 }
     ]
   },
   {
@@ -65,10 +65,10 @@ const DEFAULT_HOTSPOTS = [
     z: -10.8,
     color: '#87b8df',
     icon: '💻',
-    tagline: 'Ship mini-apps, stream casts, and build protocol clout',
+    tagline: 'Ship Farcaster mini-apps, stream casts, and stack DEGEN',
     actions: [
-      { id: 'work', label: 'Ship Farcaster Mini-App (+₡75)', cost: 0, pay: 75 },
-      { id: 'stream', label: 'Host Live Cast Stream (+₡50)', cost: 0, pay: 50 }
+      { id: 'work', label: 'Ship Farcaster Mini-App (+110 DEGEN)', cost: 0, pay: 110 },
+      { id: 'stream', label: 'Host Live Cast Stream (+85 DEGEN)', cost: 0, pay: 85 }
     ]
   },
   {
@@ -78,10 +78,10 @@ const DEFAULT_HOTSPOTS = [
     z: 10.6,
     color: '#97c7bd',
     icon: '🎧',
-    tagline: 'Lo-fi synth & rooftop social club — boost your Vibe & Clout',
+    tagline: 'Lo-fi synth & rooftop social club — boost your Vibe, Clout & DEGEN',
     actions: [
-      { id: 'party', label: 'VIP Rooftop Session (₡25)', cost: 25, pay: 0 },
-      { id: 'dj', label: 'Spin Headline Synth Set (+₡60)', cost: 0, pay: 60 }
+      { id: 'party', label: 'VIP Rooftop Session (25 DEGEN)', cost: 25, pay: 0 },
+      { id: 'dj', label: 'Headline Synth Set (+95 DEGEN)', cost: 0, pay: 95 }
     ]
   },
   {
@@ -91,10 +91,10 @@ const DEFAULT_HOTSPOTS = [
     z: 10.6,
     color: '#b7a1e5',
     icon: '🛍️',
-    tagline: 'Collect limited creator drops and grab quick street snacks',
+    tagline: 'Drop limited onchain collectibles and sample street food for DEGEN',
     actions: [
-      { id: 'hustle', label: 'Flip Limited Merch Drop (+₡55)', cost: 0, pay: 55 },
-      { id: 'snack', label: 'Grab Ramen & Boba (₡8)', cost: 8, pay: 0 }
+      { id: 'hustle', label: 'Launch Creator Drop (+90 DEGEN)', cost: 0, pay: 90 },
+      { id: 'snack', label: 'Street Food Review (+35 DEGEN)', cost: 0, pay: 35 }
     ]
   },
   {
@@ -104,8 +104,8 @@ const DEFAULT_HOTSPOTS = [
     z: -3.2,
     color: '#ffd28c',
     icon: '⚡',
-    tagline: 'Keep the Farcaster Hub relay synced and recharge your battery',
-    actions: [{ id: 'stabilize', label: 'Sync Hub Relay Node (+₡40)', cost: 0, pay: 40 }]
+    tagline: 'Keep the Farcaster Hub relay synced and earn protocol rewards',
+    actions: [{ id: 'stabilize', label: 'Sync Hub Relay Node (+80 DEGEN)', cost: 0, pay: 80 }]
   },
   {
     id: 'arcade-hq',
@@ -114,8 +114,8 @@ const DEFAULT_HOTSPOTS = [
     z: 0,
     color: '#dfa5cf',
     icon: '🕹️',
-    tagline: 'Warm up your aim or jump straight into the Laser Tag Arena',
-    actions: [{ id: 'train', label: 'Reflex Target Drill (+₡30)', cost: 0, pay: 30 }]
+    tagline: 'Warm up your aim for DEGEN or jump into the Laser Tag Arena',
+    actions: [{ id: 'train', label: 'Target Practice Run (+65 DEGEN)', cost: 0, pay: 65 }]
   },
   {
     id: 'transit-hub',
@@ -124,10 +124,10 @@ const DEFAULT_HOTSPOTS = [
     z: 0,
     color: '#8d64f7',
     icon: '🚝',
-    tagline: 'Hop the autonomous electric shuttle across Plaza districts',
+    tagline: 'Coordinate or ride the autonomous shuttle across Channel districts',
     actions: [
-      { id: 'dispatch', label: 'Coordinate Pod Dispatch (+₡42)', cost: 0, pay: 42 },
-      { id: 'shuttle', label: 'Board Express Plaza Pod (₡5)', cost: 5, pay: 0 }
+      { id: 'dispatch', label: 'Coordinate Pod Dispatch (+70 DEGEN)', cost: 0, pay: 70 },
+      { id: 'shuttle', label: 'Express Tour Bonus (+25 DEGEN)', cost: 0, pay: 25 }
     ]
   }
 ];
@@ -600,7 +600,7 @@ function DistrictKiosk({ district, cast, pos, rotY, onOpenChannel, blackout }) {
     // CTA Footer
     ctx.fillStyle = '#a78bfa';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('CLICK TO OPEN IN CASTPHONE ↗', 24, 224);
+    ctx.fillText('CLICK TO OPEN IN PHONE ↗', 24, 224);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -1460,7 +1460,7 @@ function TipValueBillboard({ amount, currency, progress }) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const currTag = (currency || 'degen').toUpperCase();
-    ctx.fillText(`+${amount} ₡${currTag}`, 180, 48);
+    ctx.fillText(`+${amount} ${currTag}`, 180, 48);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -1674,6 +1674,7 @@ export default function WorldView({
   useEffect(() => setLiveHomeTier(homeTier), [homeTier]);
 
   const playersRef = useRef([]);
+  const npcsRef = useRef([]);
   const selfIdRef = useRef('');
   const [selfId, setSelfId] = useState('');
   const [room, setRoom] = useState('');
@@ -1708,7 +1709,7 @@ export default function WorldView({
     if (soundEngine.playTipCoin) soundEngine.playTipCoin(tipData.amount || 50);
     else soundEngine.playCash();
 
-    const targetPlayer = (playersRef.current || []).find(
+    const targetPlayer = [...(playersRef.current || []), ...(npcsRef.current || [])].find(
       (p) => Number(p.fid) === Number(tipData.toFid) || p.id === tipData.targetId || p.name === tipData.toName
     );
     const mePlayer = (playersRef.current || []).find((p) => p.id === selfId);
@@ -1743,7 +1744,7 @@ export default function WorldView({
   const [text, setText] = useState('');
   const [seconds, setSeconds] = useState(null);
   const [end, setEnd] = useState(null);
-  const [showChat, setShowChat] = useState(() => typeof window !== 'undefined' && window.innerWidth > 1100);
+  const [showChat, setShowChat] = useState(false);
   const ws = useRef(null);
   const keys = useRef(new Set());
   const touch = useRef({ dx: 0, dz: 0 });
@@ -1752,6 +1753,33 @@ export default function WorldView({
   const showBanner = (msg) => {
     setBanner(msg);
     setTimeout(() => setBanner((prev) => (prev === msg ? '' : prev)), 4500);
+  };
+
+  const fireArenaLaser = (explicitTargetId = null) => {
+    if (ws.current?.readyState !== 1) return;
+    const mePlayer = (playersRef.current || []).find((p) => p.id === selfIdRef.current);
+    const candidates = [
+      ...(playersRef.current || []).filter((p) => p.id !== selfIdRef.current),
+      ...(npcsRef.current || [])
+    ];
+    let target = explicitTargetId ? candidates.find((c) => c.id === explicitTargetId) : null;
+    if (!target && mePlayer && candidates.length > 0) {
+      let bestDist = Infinity;
+      for (const c of candidates) {
+        const d = Math.hypot(c.x - mePlayer.x, c.z - mePlayer.z);
+        if (d <= 11.5 && d < bestDist) {
+          bestDist = d;
+          target = c;
+        }
+      }
+    }
+    if (target && mePlayer) {
+      const heading = Math.atan2(target.x - mePlayer.x, target.z - mePlayer.z);
+      setPlayers((prev) => prev.map((p) => (p.id === selfIdRef.current ? { ...p, heading } : p)));
+      ws.current.send(JSON.stringify({ event: 'shoot', data: { targetId: target.id } }));
+    } else {
+      ws.current.send(JSON.stringify({ event: 'shoot', data: explicitTargetId ? { targetId: explicitTargetId } : {} }));
+    }
   };
 
   async function handleTipAvatar(amount) {
@@ -1801,12 +1829,12 @@ export default function WorldView({
         }));
       }
 
-      showBanner(`🪙 Tipped ${target.name} ${amount} ₡DEGEN! (+${data.tip?.cloutAwarded || 5} Clout, +${data.tip?.vibeAwarded || 5} Vibe)`);
+      showBanner(`🎩 Tipped ${target.name} ${amount} DEGEN! (+${data.tip?.cloutAwarded || 5} Clout, +${data.tip?.vibeAwarded || 5} Vibe)`);
       setMessages((prev) => [
         ...prev.slice(-36),
         {
           type: 'notice',
-          text: `🪙 You tipped ${target.name} ${amount} ₡DEGEN`
+          text: `🎩 You tipped ${target.name} ${amount} DEGEN`
         }
       ]);
 
@@ -1879,6 +1907,7 @@ export default function WorldView({
       socket.onclose = (event) => {
         if (!active) return;
         playersRef.current = [];
+        npcsRef.current = [];
         selfIdRef.current = '';
         setPlayers([]);
         setSelfId('');
@@ -1909,6 +1938,7 @@ export default function WorldView({
         }
         if (packet.event === 'snapshot') {
           playersRef.current = d.players;
+          npcsRef.current = d.npcs || [];
           setPlayers(d.players);
           setNpcs(d.npcs || []);
           setSeconds(d.secondsLeft);
@@ -1925,13 +1955,14 @@ export default function WorldView({
             if (d.promoted) soundEngine.playPromotion();
             else if (typeof d.deltaCreds === 'number' && d.deltaCreds > 0) soundEngine.playCash();
             else soundEngine.playClick();
+            const cleanAction = String(d.action || '').replace(/\s*\([+-]?\d+\s*DEGEN\)/gi, '');
             const delta =
               typeof d.deltaCreds === 'number'
                 ? d.deltaCreds >= 0
-                  ? ` (+₡${d.deltaCreds})`
-                  : ` (-₡${Math.abs(d.deltaCreds)})`
+                  ? ` (+${d.deltaCreds} DEGEN)`
+                  : ` (-${Math.abs(d.deltaCreds)} DEGEN)`
                 : '';
-            showBanner(`${d.hotspot ? d.hotspot + ': ' : ''}${d.action}${delta}${d.promoted ? ` · 🎉 Promoted to ${d.promoted}!` : ''}`);
+            showBanner(`${d.hotspot ? d.hotspot + ': ' : ''}${cleanAction}${delta}${d.promoted ? ` · 🎉 Promoted to ${d.promoted}!` : ''}`);
             if (onUserUpdate && (d.creds !== undefined || d.needs)) {
               onUserUpdate({
                 ...user,
@@ -1993,7 +2024,7 @@ export default function WorldView({
           const isRecipient = Number(tipInfo.toFid) === Number(user?.fid);
           const isSender = Number(tipInfo.fromFid) === Number(user?.fid);
           if (isRecipient) {
-            showBanner(`🎉 ${tipInfo.fromName || 'Someone'} tipped you ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}! (+5 Clout, +5 Vibe)`);
+            showBanner(`🎉 ${tipInfo.fromName || 'Someone'} tipped you ${tipInfo.amount} ${(tipInfo.currency || 'degen').toUpperCase()}! (+5 Clout, +5 Vibe)`);
             if (onUserUpdate) {
               onUserUpdate((prev) => ({
                 ...prev,
@@ -2006,13 +2037,13 @@ export default function WorldView({
               }));
             }
           } else if (!isSender) {
-            showBanner(`🪙 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}`);
+            showBanner(`🎩 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ${(tipInfo.currency || 'degen').toUpperCase()}`);
           }
           setMessages((prev) => [
             ...prev.slice(-36),
             {
               type: 'notice',
-              text: `🪙 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ₡${(tipInfo.currency || 'degen').toUpperCase()}`
+              text: `🎩 ${tipInfo.fromName || 'Someone'} tipped ${tipInfo.toName || 'someone'} ${tipInfo.amount} ${(tipInfo.currency || 'degen').toUpperCase()}`
             }
           ]);
         }
@@ -2039,7 +2070,7 @@ export default function WorldView({
         setPhoneOpen((prev) => !prev);
       }
       if (e.code === 'Space' && kind === 'arena' && ws.current?.readyState === 1) {
-        ws.current.send(JSON.stringify({ event: 'shoot' }));
+        fireArenaLaser();
       }
       if (e.key === 'Shift' && ws.current?.readyState === 1) {
         ws.current.send(JSON.stringify({ event: 'dash' }));
@@ -2263,7 +2294,13 @@ export default function WorldView({
               effects={effects}
               tipBursts={tipBursts}
               onTipBurstComplete={(id) => setTipBursts((prev) => prev.filter((b) => b.id !== id))}
-              onSelect={setSelected}
+              onSelect={(p) => {
+                if (kind === 'arena') {
+                  fireArenaLaser(p.id);
+                } else {
+                  setSelected(p);
+                }
+              }}
               hotspots={hotspots}
               activeHotspotId={activeHotspot?.id}
               onSelectHotspot={setSelectedHotspot}
@@ -2291,132 +2328,135 @@ export default function WorldView({
         )}
 
         <div className="stage-top">
-          <button className="stage-back" onClick={onBack}>
-            <ArrowLeft size={16} /> Back
-          </button>
-          <div
-            className={`location-pill ${kind === 'plaza' ? 'district-channel-pill' : ''}`}
-            data-testid="hud-location-pill"
-            data-district={kind === 'plaza' ? activeDistrict?.id : undefined}
-            data-channel={kind === 'plaza' ? activeDistrict?.channel : undefined}
-            title={kind === 'plaza' ? `${activeDistrict?.name} (${activeDistrict?.pill}) — ${activeDistrict?.tagline}` : undefined}
-          >
-            <span
-              className="live-pulse"
-              style={
-                kind === 'plaza' && activeDistrict?.color
-                  ? {
-                      backgroundColor: activeDistrict.color,
-                      boxShadow: `0 0 0 4px ${activeDistrict.color}38`
-                    }
-                  : undefined
-              }
-            />
-            {kind === 'arena' ? (
-              'LASER TAG ARENA'
-            ) : kind === 'home' ? (
-              ownerFid && Number(ownerFid) !== Number(user.fid) ? (
-                'FRIEND’S APARTMENT'
+          <div className="stage-top-group">
+            <button className="stage-back" onClick={onBack}>
+              <ArrowLeft size={16} /> Back
+            </button>
+            <div
+              className={`location-pill ${kind === 'plaza' ? 'district-channel-pill' : ''}`}
+              data-testid="hud-location-pill"
+              data-district={kind === 'plaza' ? activeDistrict?.id : undefined}
+              data-channel={kind === 'plaza' ? activeDistrict?.channel : undefined}
+              title={kind === 'plaza' ? `${activeDistrict?.name} (${activeDistrict?.pill}) — ${activeDistrict?.tagline}` : undefined}
+            >
+              <span
+                className="live-pulse"
+                style={
+                  kind === 'plaza' && activeDistrict?.color
+                    ? {
+                        backgroundColor: activeDistrict.color,
+                        boxShadow: `0 0 0 4px ${activeDistrict.color}38`
+                      }
+                    : undefined
+                }
+              />
+              {kind === 'arena' ? (
+                'LASER TAG ARENA'
+              ) : kind === 'home' ? (
+                ownerFid && Number(ownerFid) !== Number(user.fid) ? (
+                  'FRIEND’S APARTMENT'
+                ) : (
+                  `MY ${liveHomeTier.toUpperCase()} HOME`
+                )
               ) : (
-                `MY ${liveHomeTier.toUpperCase()} PAD`
-              )
-            ) : (
-              <>
-                <span
-                  className="channel-tag"
-                  style={{ color: activeDistrict?.color || '#8a63d2', fontWeight: 900 }}
-                >
-                  {activeDistrict?.pill || '/farcaster'}
-                </span>
-                <span className="district-sep" style={{ opacity: 0.45, margin: '0 2px' }}>·</span>
-                <span className="district-name" style={{ color: '#39324f', fontWeight: 800 }}>
-                  {activeDistrict?.id === 'farcaster' ? 'Channel Hub' : (activeDistrict?.name || 'Channel Hub')}
-                </span>
-              </>
+                <>
+                  <span
+                    className="channel-tag"
+                    style={{ color: activeDistrict?.color || '#8a63d2', fontWeight: 900 }}
+                  >
+                    {activeDistrict?.pill || '/farcaster'}
+                  </span>
+                  <span className="district-sep" style={{ opacity: 0.45, margin: '0 2px' }}>·</span>
+                  <span className="district-name" style={{ color: '#39324f', fontWeight: 800 }}>
+                    {activeDistrict?.id === 'farcaster' ? 'Channel Hub' : (activeDistrict?.name || 'Channel Hub')}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {kind === 'plaza' && (
+              <div className="channel-switcher-bar" style={{ display: 'flex', gap: 5, alignItems: 'center' }} aria-label="Farcaster Channel Switcher">
+                {Object.values(DISTRICTS).map((d) => {
+                  const isActive = activeDistrict?.id === d.id;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className={`stage-back channel-warp-btn ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        soundEngine.playClick();
+                        send('warp', { channel: d.id });
+                      }}
+                      style={
+                        isActive
+                          ? {
+                              background: d.color,
+                              color: '#fff',
+                              borderColor: d.color,
+                              fontWeight: 800,
+                              padding: '6px 11px',
+                              fontSize: 12
+                            }
+                          : {
+                              padding: '6px 11px',
+                              fontSize: 12,
+                              fontWeight: 700
+                            }
+                      }
+                      title={`Warp to ${d.pill} (${d.name})`}
+                    >
+                      {d.icon} {d.pill}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          {kind === 'plaza' && (
-            <div className="channel-switcher-bar" style={{ display: 'flex', gap: 4, alignItems: 'center' }} aria-label="Farcaster Channel Switcher">
-              {Object.values(DISTRICTS).map((d) => {
-                const isActive = activeDistrict?.id === d.id;
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    className={`stage-back channel-warp-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => {
-                      soundEngine.playClick();
-                      send('warp', { channel: d.id });
-                    }}
-                    style={
-                      isActive
-                        ? {
-                            background: d.color,
-                            color: '#fff',
-                            borderColor: d.color,
-                            fontWeight: 800,
-                            padding: '5px 10px',
-                            fontSize: 11.5
-                          }
-                        : {
-                            padding: '5px 10px',
-                            fontSize: 11.5,
-                            fontWeight: 700
-                          }
-                    }
-                    title={`Warp to ${d.pill} (${d.name})`}
-                  >
-                    {d.icon} {d.pill}
-                  </button>
-                );
-              })}
+          <div className="stage-top-group">
+            <div className="world-vitals-bar" aria-label="Character needs and economy">
+              <span className="vital-creds" title="DEGEN Balance">
+                🎩 {myCreds.toLocaleString()} DEGEN
+              </span>
+              <span title="Energy">⚡{myNeeds.energy}%</span>
+              <span title="Vibe">🎧{myNeeds.vibe}%</span>
+              <span title="Clout">🔥{myNeeds.clout}</span>
             </div>
-          )}
 
-          <div className="world-vitals-bar" aria-label="Character needs and economy">
-            <span className="vital-creds" title="Creds">
-              ₡{myCreds}
-            </span>
-            <span title="Energy">⚡{myNeeds.energy}%</span>
-            <span title="Hunger">🍲{myNeeds.hunger}%</span>
-            <span title="Vibe">🎧{myNeeds.vibe}%</span>
-            <span title="Clout">🔥{myNeeds.clout}</span>
-          </div>
-
-          <button
-            type="button"
-            className="stage-back castphone-trigger"
-            onClick={() => {
-              soundEngine.playClick();
-              setPhoneApp('jobs');
-              setPhoneOpen(true);
-            }}
-          >
-            <Smartphone size={15} /> CastPhone
-          </button>
-
-          <button
-            type="button"
-            className={'stage-back ' + (radioOn ? 'radio-live' : '')}
-            onClick={() => soundEngine.toggleRadio()}
-            title="Toggle Lo-Fi & Synthwave FM Radio"
-          >
-            {radioOn ? <Volume2 size={15} /> : <VolumeX size={15} />} {radioOn ? 'FM ON' : 'FM'}
-          </button>
-
-          <button type="button" className="stage-back" onClick={cycleCamera} title="Switch camera view">
-            <Camera size={15} /> {cameraMode.toUpperCase()}
-          </button>
-
-          <div className="stage-counter">
-            <Users size={15} /> {players.length} online
-          </div>
-          {kind !== 'home' && (
-            <button className="stage-back stage-invite" onClick={inviteFriend}>
-              Invite ↗
+            <button
+              type="button"
+              className="stage-back castphone-trigger"
+              onClick={() => {
+                soundEngine.playClick();
+                setPhoneApp('jobs');
+                setPhoneOpen(true);
+              }}
+            >
+              <Smartphone size={15} /> Phone
             </button>
-          )}
+
+            <button
+              type="button"
+              className={'stage-back ' + (radioOn ? 'radio-live' : '')}
+              onClick={() => soundEngine.toggleRadio()}
+              title="Toggle Lo-Fi & Synthwave FM Radio"
+            >
+              {radioOn ? <Volume2 size={15} /> : <VolumeX size={15} />} {radioOn ? 'FM ON' : 'FM'}
+            </button>
+
+            <button type="button" className="stage-back" onClick={cycleCamera} title="Switch camera view">
+              <Camera size={15} /> {cameraMode.toUpperCase()}
+            </button>
+
+            <div className="stage-counter">
+              <Users size={15} /> {players.length + npcs.length} in world
+            </div>
+            {kind !== 'home' && (
+              <button className="stage-back stage-invite" onClick={inviteFriend}>
+                Invite ↗
+              </button>
+            )}
+          </div>
         </div>
 
         {zoneBanner && (
@@ -2481,8 +2521,8 @@ export default function WorldView({
             <Sparkles size={15} />
             <span>
               {cityEvent === 'blackout'
-                ? 'HUB RELAY OUTAGE! Visit the Hub Relay Core near the fountain to restore power (+₡70 Bonus)!'
-                : 'CITY HAPPY HOUR! Vibe & Clout rewards are boosted across the Plaza!'}
+                ? 'HUB RELAY OUTAGE! Visit the Hub Relay Core near the fountain to restore power (+140 DEGEN Bonus)!'
+                : 'CITY HAPPY HOUR! DEGEN, Vibe & Clout rewards are boosted across all Channels!'}
             </span>
           </div>
         )}
@@ -2501,18 +2541,17 @@ export default function WorldView({
           aria-controls="simcaster-room-chat"
           aria-label={showChat ? 'Close room chat' : 'Open room chat'}
         >
-          <MessageCircle size={17} /> {showChat ? 'Close chat' : 'Room chat'}{' '}
+          <MessageCircle size={17} /> {showChat ? 'Close chat' : 'Chat (+10 DEGEN)'}{' '}
           {messages.length > 0 && !showChat ? '· ' + Math.min(messages.length, 99) : ''}
         </button>
 
-        <div className="stage-info">
-          <span className={state === 'Connected' ? 'connection-good' : 'connection-bad'}>
-            {state === 'Connected' ? <Wifi size={13} /> : <WifiOff size={13} />} {state}
-          </span>
-          <span>Room {room.split(':').slice(-1)[0] || '—'}</span>
-          {kind === 'plaza' && <span>{timePhase === 'night' ? '🌙 Night Neon' : timePhase === 'sunset' ? '🌅 Golden Hour' : '☀️ Day'}</span>}
-          {kind === 'arena' && <span>{seconds ?? 180}s left</span>}
-        </div>
+        {state !== 'Connected' && (
+          <div className="stage-info">
+            <span className="connection-bad">
+              <WifiOff size={13} /> {state}
+            </span>
+          </div>
+        )}
 
         {kind === 'arena' && (
           <div className="game-hud">
@@ -2522,7 +2561,33 @@ export default function WorldView({
             <strong>
               <Trophy size={18} /> {me?.score ?? 0} / 7
             </strong>
-            <span>SPACE TO FIRE · SHIFT TO DASH</span>
+            <span>⏱️ {seconds ?? 180}s</span>
+            <span>CLICK TARGET OR PRESS SPACE TO TAG (+15 / +60 DEGEN)</span>
+            {npcs.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {npcs.map((bot) => (
+                  <button
+                    key={bot.id}
+                    type="button"
+                    className="arena-bot-pill"
+                    onClick={() => fireArenaLaser(bot.id)}
+                    style={{
+                      background: 'rgba(138, 99, 210, 0.25)',
+                      color: '#fff',
+                      border: '1px solid rgba(152, 113, 241, 0.5)',
+                      borderRadius: 99,
+                      padding: '3px 10px',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                    title={`Click to tag ${bot.name}`}
+                  >
+                    🎯 {bot.name} ({bot.hp ?? 3} HP)
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2541,7 +2606,7 @@ export default function WorldView({
             <p>{activeHotspot.tagline}</p>
             {hotspotDist > 4.5 ? (
               <small className="hotspot-dist-hint">
-                Walk closer ({hotspotDist.toFixed(1)}m away) or use your <b>CastPhone</b> to interact remotely.
+                Walk closer ({hotspotDist.toFixed(1)}m away) or open your <b>Phone</b> to run this activity from anywhere.
               </small>
             ) : (
               <div className="hotspot-hud-actions">
@@ -2565,8 +2630,8 @@ export default function WorldView({
         )}
 
         <div className="controls-hint">
-          <Move size={15} /> WASD / Arrows or Joystick · Shift to Dash · P for CastPhone ·{' '}
-          {kind === 'arena' ? 'Space to shoot (use bunkers for cover!)' : kind === 'home' ? 'Click any furniture to use it!' : 'Walk to venues to hustle & chill'}
+          <Move size={15} /> WASD / Arrows or Joystick · Shift to Dash · P for Phone ·{' '}
+          {kind === 'arena' ? 'Click any bot/player or press Space to fire!' : kind === 'home' ? 'Click any furniture to earn DEGEN!' : 'Visit Channel venues or emote to earn DEGEN'}
         </div>
 
         <VirtualJoystick touchRef={touch} />
@@ -2593,16 +2658,16 @@ export default function WorldView({
             <button className="dash-control" onClick={() => send('dash')}>
               <Zap size={18} /> DASH
             </button>
-            <button className="shoot-control" onClick={() => send('shoot')}>
-              <Crosshair size={23} /> FIRE
+            <button className="shoot-control" onClick={() => fireArenaLaser()}>
+              <Crosshair size={23} /> TAG (+15 DEGEN)
             </button>
           </div>
         ) : (
           <div className="stage-emotes">
             <button onClick={() => send('dash')}>⚡ Dash</button>
-            <button onClick={() => send('emote', { name: 'wave' })}>👋 Wave</button>
-            <button onClick={() => send('emote', { name: 'heart' })}>💜 Love</button>
-            <button onClick={() => send('emote', { name: 'dance' })}>💃 Dance</button>
+            <button onClick={() => send('emote', { name: 'wave' })}>👋 Wave (+15 DEGEN)</button>
+            <button onClick={() => send('emote', { name: 'heart' })}>💜 Love (+15 DEGEN)</button>
+            <button onClick={() => send('emote', { name: 'dance' })}>💃 Dance (+15 DEGEN)</button>
           </div>
         )}
 
@@ -2626,7 +2691,7 @@ export default function WorldView({
             {showTipMenu ? (
               <div className="tip-preset-row">
                 <div className="tip-preset-row-head">
-                  <span>Select tip amount:</span>
+                  <span>Select DEGEN tip amount:</span>
                   <button type="button" onClick={() => setShowTipMenu(false)} aria-label="Back to actions">
                     Back
                   </button>
@@ -2642,9 +2707,9 @@ export default function WorldView({
                         className="tip-preset-btn"
                         disabled={tipBusy || !canAfford || !closeEnough}
                         onClick={() => handleTipAvatar(amt)}
-                        title={!canAfford ? 'Insufficient balance' : `Tip ${amt} ₡DEGEN`}
+                        title={!canAfford ? 'Insufficient DEGEN balance' : `Tip ${amt} DEGEN`}
                       >
-                        {isThisBusy ? '...' : `${amt} ₡DEGEN`}
+                        {isThisBusy ? '...' : `${amt} DEGEN`}
                       </button>
                     );
                   })}
@@ -2659,7 +2724,7 @@ export default function WorldView({
                     setSelected(null);
                   }}
                 >
-                  👋 Wave
+                  👋 Wave (+15 DEGEN)
                 </button>
                 <button
                   disabled={!closeEnough}
@@ -2668,7 +2733,7 @@ export default function WorldView({
                     setSelected(null);
                   }}
                 >
-                  💜 Send love
+                  💜 Send love (+15 DEGEN)
                 </button>
                 <button
                   disabled={!closeEnough}
@@ -2677,14 +2742,14 @@ export default function WorldView({
                     setSelected(null);
                   }}
                 >
-                  💃 Dance
+                  💃 Dance (+15 DEGEN)
                 </button>
                 <button
                   disabled={!closeEnough || tipBusy}
                   className="interact-tip-btn"
                   onClick={() => setShowTipMenu(true)}
                 >
-                  🪙 Tip
+                  🎩 Tip DEGEN
                 </button>
                 <button
                   onClick={async () => {
@@ -2717,14 +2782,14 @@ export default function WorldView({
 
         {kind === 'plaza' && (
           <button className="goto-arcade" onClick={onArcade}>
-            <Crosshair size={16} /> Enter arcade
+            <Crosshair size={16} /> Laser Tag Arena
           </button>
         )}
 
         {end && (
           <div className="match-result">
             <Flag size={25} />
-            <h2>{end.winner === selfId ? 'You won! (+₡100)' : end.winner ? 'Match complete' : "It's a draw!"}</h2>
+            <h2>{end.winner === selfId ? 'Victory! (+150 DEGEN)' : end.winner ? 'Match complete' : "It's a draw!"}</h2>
             <p>{end.scores.map((s) => s.name + ' ' + s.score).join(' · ')}</p>
             <button className="share-match" onClick={shareMatch}>
               Share to Farcaster <ExternalLink size={14} />
@@ -2740,8 +2805,8 @@ export default function WorldView({
         <aside id="simcaster-room-chat" className="world-panel" aria-label="Room chat">
           <div className="world-panel-head">
             <div>
-              <strong>Live room</strong>
-              <small>{players.length} people here</small>
+              <strong>Room Chat</strong>
+              <small>{players.length} players online · +10 DEGEN per chat</small>
             </div>
             <button type="button" onClick={() => setShowChat(false)} aria-label="Close room chat">
               ×
@@ -2773,14 +2838,14 @@ export default function WorldView({
               ))}
             </div>
             <div className="room-chat-title">
-              <MessageCircle size={15} /> Room chat
+              <MessageCircle size={15} /> Live Chat
             </div>
             <div className="room-messages" ref={scroll}>
-              {messages.length === 0 && <p className="room-hint">Say hello! Everyone in this room can see your messages.</p>}
+              {messages.length === 0 && <p className="room-hint">Say hello to earn +10 DEGEN! Everyone in this room can see your messages.</p>}
               {messages.map((msg, i) =>
                 msg.type === 'notice' ? (
                   <div className="room-notice" key={i}>
-                    {msg.text}
+                    {String(msg.text || '').replace(/₡/g, '')}
                   </div>
                 ) : (
                   <div className="room-msg" key={i}>
@@ -2795,7 +2860,7 @@ export default function WorldView({
                 aria-label="Chat message"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Say something…"
+                placeholder="Say something (+10 DEGEN)…"
                 maxLength={180}
               />
               <button aria-label="Send message" type="submit">

@@ -312,5 +312,25 @@ test('transferTip input validation and error rejection invariants', () => {
   }
 });
 
+test('recordArcadeReward and useHomeFurniture award DEGEN and advance quest progress', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'simcaster-arcade-'));
+  try {
+    const filename = path.join(temp, 'store.json');
+    const store = new Store(filename);
+    const player = store.userFor(401, { displayName: 'Gamer' });
+    assert.equal(player.creds, 250);
 
+    // Home furniture usage awards DEGEN
+    const homeAct = store.useHomeFurniture(401, 'sofa');
+    assert.equal(homeAct.deltaCreds, 25);
+    assert.equal(store.findUser(401).creds, 275);
 
+    // Arcade mini-game reward awards DEGEN and records arena_tags quest progress
+    const triviaReward = store.recordArcadeReward(401, 'Channel Trivia Blitz', 120);
+    assert.equal(triviaReward.reward, 120);
+    assert.equal(store.findUser(401).creds, 395);
+    assert.equal(store.findUser(401).quests.arena_tags.progress, 1);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});

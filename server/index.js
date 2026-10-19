@@ -245,6 +245,13 @@ app.post('/api/world/interact',requireAuth,throttle('economy',60,60000),(req,res
     res.json({ok:true,...result});
   } catch(e){fail(res,e.message);}
 });
+app.post('/api/arcade/reward',requireAuth,throttle('economy',60,60000),(req,res)=>{
+  try {
+    const result=store.recordArcadeReward(req.user.fid,req.body?.game,req.body?.reward);
+    world.syncUser(req.user.fid);
+    res.json({ok:true,...result});
+  } catch(e){fail(res,e.message);}
+});
 app.get('/api/city',requireAuth,(_,res)=>res.json(store.cityStatus()));
 app.post('/api/city/nominate',requireAuth,throttle('city',25,60000),(req,res)=>{
   try {

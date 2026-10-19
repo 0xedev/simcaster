@@ -100,10 +100,10 @@ export const PLAZA_HOTSPOTS = [
     z: -10.8,
     color: '#e9a9bd',
     icon: '☕',
-    tagline: 'Refuel with artisan espresso & matcha or work a barista shift',
+    tagline: 'Grab artisan espresso & matcha or pull a barista shift for DEGEN',
     actions: [
-      { id: 'eat', label: 'Order Espresso & Pastry (₡15)', cost: 15, pay: 0, xp: 4, energy: 22, hunger: 38, vibe: 8, clout: 1, cooldownMs: 3000 },
-      { id: 'work', label: 'Work Barista Shift (+₡45)', cost: 0, pay: 45, xp: 14, energy: -16, hunger: -12, vibe: -4, clout: 3, cooldownMs: 4500 }
+      { id: 'eat', label: 'Espresso & Pastry (+35 DEGEN)', cost: 0, pay: 35, xp: 10, energy: 30, hunger: 40, vibe: 12, clout: 4, cooldownMs: 2500 },
+      { id: 'work', label: 'Barista Shift (+90 DEGEN)', cost: 0, pay: 90, xp: 20, energy: -8, hunger: -6, vibe: 6, clout: 8, cooldownMs: 3000 }
     ]
   },
   {
@@ -114,10 +114,10 @@ export const PLAZA_HOTSPOTS = [
     z: -10.8,
     color: '#87b8df',
     icon: '💻',
-    tagline: 'Ship mini-apps, stream casts, and build protocol clout',
+    tagline: 'Ship mini-apps, stream casts, and earn protocol DEGEN',
     actions: [
-      { id: 'work', label: 'Ship Farcaster Mini-App (+₡75)', cost: 0, pay: 75, xp: 22, energy: -24, hunger: -14, vibe: -6, clout: 12, cooldownMs: 5500 },
-      { id: 'stream', label: 'Host Live Cast Stream (+₡50)', cost: 0, pay: 50, xp: 16, energy: -14, hunger: -8, vibe: 12, clout: 18, cooldownMs: 4500 }
+      { id: 'work', label: 'Ship Mini-App (+140 DEGEN)', cost: 0, pay: 140, xp: 28, energy: -10, hunger: -6, vibe: 10, clout: 16, cooldownMs: 3500 },
+      { id: 'stream', label: 'Live Cast Stream (+105 DEGEN)', cost: 0, pay: 105, xp: 22, energy: -6, hunger: -4, vibe: 18, clout: 20, cooldownMs: 3000 }
     ]
   },
   {
@@ -128,10 +128,10 @@ export const PLAZA_HOTSPOTS = [
     z: 10.6,
     color: '#97c7bd',
     icon: '🎧',
-    tagline: 'Lo-fi synth & rooftop social club — boost your Vibe & Clout',
+    tagline: 'Lo-fi synth & rooftop social club — boost your Vibe & DEGEN',
     actions: [
-      { id: 'party', label: 'VIP Rooftop Session (₡25)', cost: 25, pay: 0, xp: 8, energy: -8, hunger: -6, vibe: 45, clout: 14, cooldownMs: 3500 },
-      { id: 'dj', label: 'Spin Headline Synth Set (+₡60)', cost: 0, pay: 60, xp: 18, energy: -18, hunger: -10, vibe: 20, clout: 16, cooldownMs: 5000 }
+      { id: 'party', label: 'VIP Rooftop Session (25 DEGEN)', cost: 25, pay: 0, xp: 12, energy: 15, hunger: 10, vibe: 45, clout: 18, cooldownMs: 2500 },
+      { id: 'dj', label: 'Headline DJ Set (+125 DEGEN)', cost: 0, pay: 125, xp: 25, energy: -8, hunger: -5, vibe: 28, clout: 20, cooldownMs: 3500 }
     ]
   },
   {
@@ -142,10 +142,10 @@ export const PLAZA_HOTSPOTS = [
     z: 10.6,
     color: '#b7a1e5',
     icon: '🛍️',
-    tagline: 'Collect limited creator drops and grab quick street snacks',
+    tagline: 'Flip limited creator drops and sample street snacks for DEGEN',
     actions: [
-      { id: 'hustle', label: 'Flip Limited Merch Drop (+₡55)', cost: 0, pay: 55, xp: 16, energy: -15, hunger: -10, vibe: 5, clout: 8, cooldownMs: 4500 },
-      { id: 'snack', label: 'Grab Ramen & Boba (₡8)', cost: 8, pay: 0, xp: 2, energy: 12, hunger: 26, vibe: 6, clout: 0, cooldownMs: 2500 }
+      { id: 'hustle', label: 'Flip Merch Drop (+115 DEGEN)', cost: 0, pay: 115, xp: 22, energy: -8, hunger: -5, vibe: 12, clout: 14, cooldownMs: 3000 },
+      { id: 'snack', label: 'Ramen & Boba Tasting (+30 DEGEN)', cost: 0, pay: 30, xp: 8, energy: 24, hunger: 36, vibe: 14, clout: 4, cooldownMs: 2000 }
     ]
   },
   {
@@ -156,22 +156,22 @@ export const PLAZA_HOTSPOTS = [
     z: -3.2,
     color: '#ffd28c',
     icon: '⚡',
-    tagline: 'Keep the Farcaster Hub relay synced and recharge your battery',
+    tagline: 'Sync the Farcaster Hub relay node and recharge your energy',
     actions: [
-      { id: 'stabilize', label: 'Sync Hub Relay Node (+₡40)', cost: 0, pay: 40, xp: 15, energy: 28, hunger: -6, vibe: 10, clout: 10, cooldownMs: 5000 }
+      { id: 'stabilize', label: 'Sync Relay Node (+95 DEGEN)', cost: 0, pay: 95, xp: 20, energy: 35, hunger: 10, vibe: 15, clout: 12, cooldownMs: 3000 }
     ]
   },
   {
     id: 'arcade-hq',
-    name: 'Laser Tag Arcade HQ',
+    name: 'Arcade HQ',
     buildingIndex: 9,
     x: 11.6,
     z: 0,
     color: '#dfa5cf',
     icon: '🕹️',
-    tagline: 'Warm up your aim or jump straight into the Laser Tag Arena',
+    tagline: 'Run target drills for DEGEN or jump into the 4 Arcade games',
     actions: [
-      { id: 'train', label: 'Reflex Target Drill (+₡30)', cost: 0, pay: 30, xp: 12, energy: -10, hunger: -6, vibe: 22, clout: 9, cooldownMs: 3500 }
+      { id: 'train', label: 'Target Drill (+85 DEGEN)', cost: 0, pay: 85, xp: 18, energy: 10, hunger: 0, vibe: 26, clout: 12, cooldownMs: 2500 }
     ]
   },
   {
@@ -182,25 +182,25 @@ export const PLAZA_HOTSPOTS = [
     z: 0,
     color: '#8d64f7',
     icon: '🚝',
-    tagline: 'Hop the autonomous electric shuttle across Plaza districts',
+    tagline: 'Coordinate transit pods or warp across channel districts',
     actions: [
-      { id: 'dispatch', label: 'Coordinate Pod Dispatch (+₡42)', cost: 0, pay: 42, xp: 14, energy: -12, hunger: -8, vibe: 12, clout: 7, cooldownMs: 4000 },
-      { id: 'shuttle', label: 'Board Express Plaza Pod (₡5)', cost: 5, pay: 0, xp: 6, energy: 10, hunger: 0, vibe: 24, clout: 5, cooldownMs: 2500 }
+      { id: 'dispatch', label: 'Pod Dispatch (+90 DEGEN)', cost: 0, pay: 90, xp: 18, energy: -6, hunger: -4, vibe: 16, clout: 10, cooldownMs: 3000 },
+      { id: 'shuttle', label: 'Express Channel Pod (+25 DEGEN)', cost: 0, pay: 25, xp: 10, energy: 18, hunger: 5, vibe: 24, clout: 8, cooldownMs: 2000 }
     ]
   }
 ];
 
 export const DAILY_QUESTS = [
-  { id: 'hustle_shifts', title: 'Plaza Builder', description: 'Complete 2 venue activities in the Plaza', target: 2, rewardCreds: 120, rewardXp: 40 },
-  { id: 'arena_tags', title: 'Laser Gladiator', description: 'Land 2 laser hits in the Arena', target: 2, rewardCreds: 150, rewardXp: 50 },
-  { id: 'civic_life', title: 'City Insider', description: 'Vote in City Hall or use home furniture', target: 1, rewardCreds: 100, rewardXp: 35 }
+  { id: 'hustle_shifts', title: 'Channel Earner', description: 'Complete 2 venue activities across the channels', target: 2, rewardCreds: 120, rewardXp: 40 },
+  { id: 'arena_tags', title: 'Arcade Champion', description: 'Play Arcade games or land 2 Laser Tag hits', target: 2, rewardCreds: 150, rewardXp: 50 },
+  { id: 'civic_life', title: 'Community Pillar', description: 'Vote in City Hall, tip a player, or use home furniture', target: 1, rewardCreds: 100, rewardXp: 35 }
 ];
 
 export const CITY_NPCS = [
   {
     id: 'npc-maya',
     fid: 9001,
-    name: 'Maya (Café Curator)',
+    name: 'Maya (Café Host)',
     cx: -5.2,
     cz: -8.2,
     radius: 1.6,
@@ -208,15 +208,15 @@ export const CITY_NPCS = [
     phase: 0,
     avatar: { color: 'citrus', outfit: 'formal', hair: 'curls', skin: 'warm', hairColor: 'espresso', accessory: 'earrings', build: 'regular' },
     lines: [
-      'Fresh espresso & matcha at Warp Bean Café! ☕✨',
-      'Keep your Energy topped up before shipping mini-apps!',
-      'Vote Zero Café Tax at City Hall for 50% off meals!'
+      'Grab an espresso at Warp Bean Café and earn +35 DEGEN! ☕',
+      'Every activity in the channels pays out fresh DEGEN!',
+      'Barista shifts pay +90 DEGEN per run!'
     ]
   },
   {
     id: 'npc-kora',
     fid: 9002,
-    name: 'DJ Kora (Purple Lounge)',
+    name: 'DJ Kora (/memes)',
     cx: -4.8,
     cz: 8.2,
     radius: 1.8,
@@ -224,15 +224,15 @@ export const CITY_NPCS = [
     phase: 2.1,
     avatar: { color: 'violet', outfit: 'street', hair: 'long', skin: 'deep', hairColor: 'silver', accessory: 'headphones', build: 'slim' },
     lines: [
-      'Lo-fi & Synthwave streaming live all night! 🎧',
-      'Toggle FM Radio in the top bar to vibe!',
-      'Come spin a set at Purple Channel Lounge!'
+      'Spin a set at Purple Lounge for +125 DEGEN! 🎧',
+      'Check out the Arcade — 4 live games paying DEGEN!',
+      'Click any player to send a DEGEN tip!'
     ]
   },
   {
     id: 'npc-devon',
     fid: 9003,
-    name: 'Devon (Hub Engineer)',
+    name: 'Devon (/dev Lead)',
     cx: -8.6,
     cz: 0,
     radius: 1.9,
@@ -240,10 +240,46 @@ export const CITY_NPCS = [
     phase: 4.2,
     avatar: { color: 'mint', outfit: 'sport', hair: 'buzz', skin: 'light', hairColor: 'chestnut', accessory: 'cap', build: 'regular' },
     lines: [
-      'Hop the Warp Transit Pod to fast-travel the Plaza! 🚝',
-      'Relay Outages pay a +₡70 bonus at the Hub Relay Core! ⚡',
-      'Open CastPhone (P) to claim your Daily Quests! 📱'
+      'Ship a mini-app at The Foundry for +140 DEGEN! 💻',
+      'Sync the Hub Relay Core for +95 DEGEN & full energy! ⚡',
+      'Open your Phone (P) to claim daily DEGEN quests! 📱'
     ]
+  }
+];
+
+export const ARENA_BOTS = [
+  {
+    id: 'bot-nova',
+    fid: 9101,
+    name: 'Nova Bot',
+    cx: -6.5,
+    cz: -9.2,
+    radius: 2.6,
+    speed: 0.85,
+    phase: 0.4,
+    avatar: { color: 'coral', outfit: 'sport', hair: 'short', skin: 'light', hairColor: 'silver', accessory: 'glasses', build: 'slim' }
+  },
+  {
+    id: 'bot-byte',
+    fid: 9102,
+    name: 'Byte Striker',
+    cx: 6.5,
+    cz: -9.2,
+    radius: 2.6,
+    speed: 0.95,
+    phase: 2.5,
+    avatar: { color: 'sky', outfit: 'street', hair: 'buzz', skin: 'tan', hairColor: 'espresso', accessory: 'headphones', build: 'regular' }
+  },
+  {
+    id: 'bot-glitch',
+    fid: 9103,
+    name: 'Glitch Runner',
+    cx: 0,
+    cz: 9.2,
+    radius: 3.0,
+    speed: 0.9,
+    phase: 4.6,
+    avatar: { color: 'mint', outfit: 'sport', hair: 'curls', skin: 'deep', hairColor: 'blonde', accessory: 'cap', build: 'broad' }
   }
 ];
 
