@@ -175,8 +175,8 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
     const id = crypto.randomUUID();
     const spawn = room.type === 'arena' ? 8 : 4;
     const account = store.findUser(user.fid) || user;
-    let spawnX = type === 'plaza' ? 3 + Math.random() * 2 : (Math.random() - 0.5) * spawn;
-    let spawnZ = type === 'plaza' ? 3 + Math.random() * 2 : (Math.random() - 0.5) * spawn;
+    let spawnX = type === 'plaza' ? (Math.random() - 0.5) * 1.4 : (Math.random() - 0.5) * spawn;
+    let spawnZ = type === 'plaza' ? 2.95 + Math.random() * 0.5 : (Math.random() - 0.5) * spawn;
     if (type === 'arena' && room.players.size > 0) {
       for (let attempt = 0; attempt < 20; attempt++) {
         const cx = (Math.random() - 0.5) * spawn;
@@ -229,7 +229,7 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
       city: store.cityStatus()
     });
     broadcast(room, 'notice', {
-      text: user.displayName.slice(0, 32) + ' joined the ' + (type === 'arena' ? 'arena' : type === 'home' ? 'apartment' : 'world')
+      text: user.displayName.slice(0, 32) + ' joined the ' + (type === 'arena' ? 'arena' : type === 'home' ? 'apartment' : 'channels')
     });
 
     let messageWindow = Date.now();
@@ -260,6 +260,20 @@ export function attachWorld(server, store, sessionFromRequest, allowedOrigin, cl
         if (Number.isFinite(value.dx) && Number.isFinite(value.dz)) {
           p.input = { dx: clamp(value.dx, -1, 1), dz: clamp(value.dz, -1, 1) };
           if (Math.hypot(p.input.dx, p.input.dz) > 0.01) p.heading = Math.atan2(p.input.dx, p.input.dz);
+        }
+      } else if (packet.event === 'warp') {
+        if (room.type !== 'plaza') return;
+        const ch = String(packet.data?.channel || '').replace(/^\/+/, '').toLowerCase();
+        const coords = {
+          farcaster: { x: 0, z: 3.1 },
+          dev: { x: 6, z: -8.5 },
+          memes: { x: -5.5, z: 8.5 },
+          base: { x: 6.5, z: 8.5 }
+        }[ch];
+        if (coords) {
+          p.x = coords.x + (Math.random() - 0.5) * 0.6;
+          p.z = coords.z + (Math.random() - 0.5) * 0.6;
+          p.input = { dx: 0, dz: 0 };
         }
       } else if (packet.event === 'dash') {
         if (now - p.lastDash < DASH_COOLDOWN_MS || p.hp <= 0) return;

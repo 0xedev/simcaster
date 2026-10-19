@@ -1437,6 +1437,7 @@ export default function WorldView({
   user,
   onUserUpdate,
   kind = 'plaza',
+  initialChannel = null,
   ownerFid = null,
   homeItems = [],
   homeTier = 'studio',
@@ -1688,6 +1689,9 @@ export default function WorldView({
           setSelfId(d.id);
           setRoom(d.room);
           if (Array.isArray(d.hotspots) && d.hotspots.length) setHotspots(d.hotspots);
+          if (initialChannel && kind === 'plaza') {
+            socket.send(JSON.stringify({ event: 'warp', data: { channel: initialChannel } }));
+          }
         }
         if (packet.event === 'snapshot') {
           playersRef.current = d.players;
@@ -2079,10 +2083,50 @@ export default function WorldView({
                   {activeDistrict?.pill || '/farcaster'}
                 </span>
                 <span className="district-sep" style={{ opacity: 0.45, margin: '0 2px' }}>·</span>
-                <span className="district-name" style={{ color: '#39324f', fontWeight: 800 }}>{activeDistrict?.name || 'Main Plaza'}</span>
+                <span className="district-name" style={{ color: '#39324f', fontWeight: 800 }}>
+                  {activeDistrict?.id === 'farcaster' ? 'Channel Hub' : (activeDistrict?.name || 'Channel Hub')}
+                </span>
               </>
             )}
           </div>
+
+          {kind === 'plaza' && (
+            <div className="channel-switcher-bar" style={{ display: 'flex', gap: 4, alignItems: 'center' }} aria-label="Farcaster Channel Switcher">
+              {Object.values(DISTRICTS).map((d) => {
+                const isActive = activeDistrict?.id === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    className={`stage-back channel-warp-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      soundEngine.playClick();
+                      send('warp', { channel: d.id });
+                    }}
+                    style={
+                      isActive
+                        ? {
+                            background: d.color,
+                            color: '#fff',
+                            borderColor: d.color,
+                            fontWeight: 800,
+                            padding: '5px 10px',
+                            fontSize: 11.5
+                          }
+                        : {
+                            padding: '5px 10px',
+                            fontSize: 11.5,
+                            fontWeight: 700
+                          }
+                    }
+                    title={`Warp to ${d.pill} (${d.name})`}
+                  >
+                    {d.icon} {d.pill}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="world-vitals-bar" aria-label="Character needs and economy">
             <span className="vital-creds" title="Creds">

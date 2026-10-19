@@ -27,7 +27,7 @@ const icons={home:Home,feed:Radio,world:Compass,arcade:Gamepad2,profile:UserRoun
 const nav=[
   {id:'home',label:'Overview',icon:Home},
   {id:'feed',label:'Social feed',icon:Radio},
-  {id:'world',label:'Explore world',icon:Compass},
+  {id:'world',label:'Channels',icon:Compass},
   {id:'arcade',label:'Game arcade',icon:Gamepad2},
   {id:'profile',label:'My character',icon:UserRound}
 ];
@@ -137,7 +137,7 @@ function Login({config,onSignedIn,onToast}){
         <div className="art-world"><div className="art-building building-a"/><div className="art-building building-b"/><div className="art-building building-c"/><div className="art-road"/>
           <div className="art-fountain">✦</div><div className="art-person person-a">👩🏽‍🚀</div><div className="art-person person-b">🧑🏽‍🎤</div><div className="art-person person-c">👨🏻‍💻</div>
         </div>
-        <div className="float-note note-one"><span className="note-dot"/> Ava is exploring the plaza</div>
+        <div className="float-note note-one"><span className="note-dot"/> Ava is exploring /farcaster</div>
         <div className="float-note note-two">🎮 &nbsp; Game night is on!</div>
         <div className="float-note note-three">💜 &nbsp; Make yourself at home</div>
         <div className="welcome-deco">A WORLD BEYOND THE FEED</div>
@@ -159,16 +159,16 @@ function Sidebar({tab,onTab,user,stats,config,onLogout,openMobile,setOpenMobile}
       <button className="nav-link" onClick={()=>{onTab('home-space');setOpenMobile(false);}}><House size={19}/> <span>My apartment</span></button>
       <button className="nav-link" onClick={()=>{onTab('settings');setOpenMobile(false);}}><Settings size={19}/> <span>Settings</span></button>
       <div className="sidebar-spacer"/>
-      <div className="sidebar-promo"><div className="promo-icon">✳</div><strong>The world is better together.</strong><p>Invite a friend to hang out in the plaza.</p><button onClick={()=>{if(navigator.clipboard?.writeText)navigator.clipboard.writeText(location.origin).catch(()=>{});}}>Copy invite link <ArrowUpRight size={14}/></button></div>
+      <div className="sidebar-promo"><div className="promo-icon">✳</div><strong>The world is better together.</strong><p>Invite a friend to hang out in the channels.</p><button onClick={()=>{if(navigator.clipboard?.writeText)navigator.clipboard.writeText(location.origin).catch(()=>{});}}>Copy invite link <ArrowUpRight size={14}/></button></div>
       <div className="sidebar-bottom"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/><div><b>{user.displayName}</b><span>{user.demo?'Demo account':'@'+user.username}</span></div><button onClick={onLogout} aria-label="Log out" title="Sign out"><LogOut size={17}/></button></div>
     </aside>
   </>;
 }
 function Topbar({user,tab,openMenu,stats,onTab,onOpenPhone}) {
-  const titles={home:'Your dashboard',feed:'Social feed',world:'Explore the world',arcade:'Game arcade',profile:'My character',friends:'Friends & requests','home-space':'My apartment',settings:'Settings',arena:'Laser tag'};
+  const titles={home:'Your dashboard',feed:'Social feed',world:'Farcaster Channels',arcade:'Game arcade',profile:'My character',friends:'Friends & requests','home-space':'My apartment',settings:'Settings',arena:'Laser tag'};
   const creds=user.creds??250;
   return <header className="topbar">
-    <div className="topbar-title"><button className="hamburger" onClick={openMenu}><Menu size={22}/></button><div><small>SIMCASTER / {tab.toUpperCase()}</small><h2>{titles[tab]}</h2></div></div>
+    <div className="topbar-title"><button className="hamburger" onClick={openMenu}><Menu size={22}/></button><div><small>SIMCASTER / {tab==='world'?'CHANNELS':tab.toUpperCase()}</small><h2>{titles[tab]}</h2></div></div>
     <div className="topbar-actions">
       <button type="button" className="topbar-phone-btn" onClick={()=>onOpenPhone('jobs')} title="Open CastPhone OS"><Smartphone size={15}/> CastPhone · ₡{creds}</button>
       <span className="global-online"><span className="live-pulse"/>{stats.players??0} exploring</span>
@@ -176,28 +176,31 @@ function Topbar({user,tab,openMenu,stats,onTab,onOpenPhone}) {
     </div>
   </header>;
 }
-function Dashboard({user,onTab,stats,config,onOpenPhone}) {
+function Dashboard({user,onTab,onEnterChannel,stats,config,onOpenPhone}) {
   const needs=user.needs||{energy:85,hunger:80,vibe:75,clout:10};
   const creds=user.creds??250;
   const mayor=stats.city?.mayor;
   const policy=stats.city?.policyDetails;
+  const jumpChannel=ch=>{if(onEnterChannel)onEnterChannel(ch);else onTab('world');};
   return <div className="page-content dashboard-page">
-    <div className="page-kicker"><span className="live-pulse"/> YOUR LITTLE UNIVERSE IS READY · {policy?`ACTIVE DECREE: ${policy.label.toUpperCase()}`:'SIMCASTER METROPOLIS'}</div>
-    <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR NEW SOCIAL WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Let's make</span> some memories.</h1><p>Ship mini-apps at The Foundry, grab espresso at Warp Bean Café, upgrade to a Skyline Penthouse, or run for City Mayor.</p>
+    <div className="page-kicker"><span className="live-pulse"/> YOUR LITTLE UNIVERSE IS READY · {policy?`ACTIVE DECREE: ${policy.label.toUpperCase()}`:'SIMCASTER CHANNELS'}</div>
+    <div className="dashboard-hero"><div className="hero-copy"><span className="hero-pill"><Sparkles size={14}/> YOUR NEW SOCIAL WORLD</span><h1>Hey, {user.displayName.split(' ')[0]} <span className="wave">👋</span><br/><span>Let's make</span> some memories.</h1><p>Drop into live Farcaster Channels (/farcaster, /dev, /memes, /base), tip creators in ₡DEGEN, upgrade to a Skyline Penthouse, or run for City Mayor.</p>
       <div className="hero-cta-row">
-        <button className="primary-btn" onClick={()=>onTab('world')}>Enter the world <ArrowUpRight size={18}/></button>
+        <button className="primary-btn" onClick={()=>jumpChannel('farcaster')}>Enter Channels <ArrowUpRight size={18}/></button>
         <button className="secondary-btn" onClick={()=>onOpenPhone('jobs')}><Smartphone size={16}/> Open CastPhone</button>
       </div>
     </div>
       <div className="hero-illustration hero-world-preview">
-        <React.Suspense fallback={<div className="diorama-fallback">Loading your 3D neighbourhood…</div>}>
-          <SimDiorama avatar={user.avatar} onExplore={()=>onTab('world')} onArcade={()=>onTab('arcade')} onHome={()=>onTab('home-space')}/>
+        <React.Suspense fallback={<div className="diorama-fallback">Loading your 3D channels…</div>}>
+          <SimDiorama avatar={user.avatar} onExplore={()=>jumpChannel('farcaster')} onArcade={()=>onTab('arcade')} onHome={()=>onTab('home-space')}/>
         </React.Suspense>
-        <div className="hero-3d-label"><span className="live-pulse"/> LIVE 3D SOCIAL WORLD</div>
+        <div className="hero-3d-label"><span className="live-pulse"/> LIVE 3D FARCASTER CHANNELS</div>
         <div className="hero-world-places">
-          <button onClick={()=>onTab('world')}>🏙️ Plaza ↗</button>
-          <button onClick={()=>onTab('arcade')}>🎮 Arcade ↗</button>
-          <button onClick={()=>onTab('home-space')}>🏠 My place ↗</button>
+          <button onClick={()=>jumpChannel('farcaster')}>✦ /farcaster ↗</button>
+          <button onClick={()=>jumpChannel('dev')}>💻 /dev ↗</button>
+          <button onClick={()=>jumpChannel('memes')}>🕹️ /memes ↗</button>
+          <button onClick={()=>jumpChannel('base')}>🛍️ /base ↗</button>
+          <button onClick={()=>onTab('home-space')}>🏠 My pad ↗</button>
         </div>
       </div>
     </div>
@@ -207,9 +210,9 @@ function Dashboard({user,onTab,stats,config,onOpenPhone}) {
       <div className="stat-card"><div className="stat-icon peach"><Sparkles size={21}/></div><div><strong>🎧{needs.vibe}% · 🔥{needs.clout}</strong><span>Vibe & Clout</span></div></div>
       <div className="stat-card" onClick={()=>onOpenPhone('mayor')} style={{cursor:'pointer'}}><div className="stat-icon lavender"><Crown size={21}/></div><div><strong>{mayor?mayor.displayName:'Vote Now'}</strong><span>City Mayor · {stats.players??0} online</span></div></div>
     </div>
-    <div className="section-heading"><div><span className="eyebrow">PICK YOUR ADVENTURE</span><h2>What are we doing today?</h2></div><button className="text-link" onClick={()=>onTab('world')}>Explore the world <ArrowRight size={17}/></button></div>
+    <div className="section-heading"><div><span className="eyebrow">PICK YOUR CHANNEL</span><h2>Where are we hanging out today?</h2></div><button className="text-link" onClick={()=>jumpChannel('farcaster')}>Explore all channels <ArrowRight size={17}/></button></div>
     <div className="adventure-grid">
-      <button className="adventure-card explore-card" onClick={()=>onTab('world')}><div className="adventure-deco">✦</div><span className="adventure-illustration">🏙️</span><span className="card-tag">7 INTERACTIVE VENUES</span><h3>Build & hang at the Plaza</h3><p>Visit Warp Bean Café, Purple Channel Lounge, Onchain Pop-Up Market, and The Foundry Studio.</p><span className="adventure-cta">Start exploring <ArrowUpRight size={17}/></span></button>
+      <button className="adventure-card explore-card" onClick={()=>jumpChannel('farcaster')}><div className="adventure-deco">✦</div><span className="adventure-illustration">🟣</span><span className="card-tag">4 LIVE CHANNELS</span><h3>Hang out in Farcaster Channels</h3><p>Roam /farcaster Hub, /dev Builders Foundry, /memes Arcade Lounge, and /base Onchain Market.</p><span className="adventure-cta">Enter Channels <ArrowUpRight size={17}/></span></button>
       <button className="adventure-card arcade-card" onClick={()=>onTab('arcade')}><span className="adventure-illustration">🕹️</span><span className="card-tag">TACTICAL ARENA</span><h3>Laser Tag 2.0</h3><p>Use neon bunkers for cover, grab shields, dash, and win ₡100 Creds per match.</p><span className="adventure-cta">Visit arcade <ArrowUpRight size={17}/></span></button>
       <button className="adventure-card home-card" onClick={()=>onTab('home-space')}><span className="adventure-illustration">🛋️</span><span className="card-tag">REAL ESTATE TIERS</span><h3>Upgrade your pad</h3><p>Unlock beds, DJ decks & espresso bars, and upgrade to a Skyline Penthouse.</p><span className="adventure-cta">Visit apartment <ArrowUpRight size={17}/></span></button>
     </div>
@@ -217,7 +220,7 @@ function Dashboard({user,onTab,stats,config,onOpenPhone}) {
   </div>;
 }
 function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
-  const [mode,setMode]=useState('following'),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
+  const [mode,setMode]=useState('following'),[channelFilter,setChannelFilter]=useState(''),[casts,setCasts]=useState([]),[sample,setSample]=useState(false);
   const [fallback,setFallback]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[cursor,setCursor]=useState(null),[query,setQuery]=useState('');
   const [composeText,setComposeText]=useState(''),[replyTarget,setReplyTarget]=useState(null),[quoteTarget,setQuoteTarget]=useState(null),[busy,setBusy]=useState(false);
   const [conversation,setConversation]=useState(null),[threadLoading,setThreadLoading]=useState(false);
@@ -283,15 +286,15 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
       setPendingTipAmount(null);
     }
   }
-  async function load(nextMode=mode,append=false,nextCursor=null){
+  async function load(nextMode=mode,append=false,nextCursor=null,nextChannel=channelFilter){
     setLoading(true);setError('');
     try{
-      const r=await api('/feed?mode='+nextMode+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
+      const r=await api('/feed?mode='+nextMode+(nextChannel?'&channel='+encodeURIComponent(nextChannel):'')+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
       setCasts(prev=>append?[...prev,...r.casts]:r.casts);setSample(!!r.sample);setFallback(!!r.feedFallback);setCursor(r.cursor||null);
     }catch(e){setError(e.message);if(!append)setCasts([]);}
     finally{setLoading(false);}
   }
-  useEffect(()=>{load(mode);},[mode]);
+  useEffect(()=>{load(mode,false,null,channelFilter);},[mode,channelFilter]);
   async function openThread(c) {
     setReplyTarget(c);setConversation(null);setThreadLoading(true);
     try{const data=await api('/casts/'+encodeURIComponent(c.hash)+'/conversation');setConversation(data.conversation||{});}
@@ -326,16 +329,17 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
       }:undefined;
       await api('/casts',{method:'POST',body:JSON.stringify({
         text:composeText.trim(),
+        ...(channelFilter?{channel:channelFilter}:{}),
         ...(replyTarget?{parent:replyTarget.hash}:{}),
         ...(quotePayload?{quote:quotePayload}:{})
       })});
-      notify(replyTarget?'Reply published (+2 Clout)':quoteTarget?'Quote cast published (+2 Clout)':'Cast published (+2 Clout)');
+      notify(replyTarget?'Reply published (+2 Clout)':quoteTarget?'Quote cast published (+2 Clout)':channelFilter?`Cast published to /${channelFilter} (+2 Clout)`:'Cast published (+2 Clout)');
       setComposeText('');setQuoteTarget(null);
       if(replyTarget){
         const target=replyTarget;
         await openThread(target);
       }
-      await load(mode);
+      await load(mode,false,null,channelFilter);
     }catch(e){notify(e.message);}finally{setBusy(false);}
   }
   function share(c){
@@ -346,31 +350,45 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
   const visible=casts.filter(c=>(c.text+' '+c.author?.display_name+' '+c.author?.username).toLowerCase().includes(query.toLowerCase()));
   const replies=Array.isArray(conversation?.direct_replies)?conversation.direct_replies:
     Array.isArray(conversation?.cast?.direct_replies)?conversation.cast.direct_replies:[];
+  const CHANNELS=[
+    {id:'',label:'All Channels'},
+    {id:'farcaster',label:'✦ /farcaster'},
+    {id:'dev',label:'💻 /dev'},
+    {id:'memes',label:'🕹️ /memes'},
+    {id:'base',label:'🛍️ /base'}
+  ];
   return <div className="page-content feed-page">
     <div className="section-heading page-heading">
-      <div><span className="eyebrow">HAPPENING IN YOUR WORLD</span><h2>Your Farcaster feed, right here.</h2><p>Post, reply, quote, like and recast 100% inside Simcaster without ever leaving your world.</p></div>
+      <div><span className="eyebrow">HAPPENING IN YOUR CHANNELS</span><h2>Your Farcaster feed, right here.</h2><p>Post, reply, quote, like, recast and tip 100% inside Simcaster across live channels.</p></div>
       <button className="primary-btn" onClick={()=>{setReplyTarget(null);setQuoteTarget(null);document.getElementById('feed-compose')?.focus();}}>
         <Pencil size={17}/> New cast
       </button>
     </div>
-    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Showing your live Farcaster following & Simcaster world feed.</span></div>}
+    {fallback&&!sample&&<div className="demo-banner"><Sparkles size={17}/><span>Showing your live Farcaster following & Simcaster channel feed.</span></div>}
     {sample&&<div className="demo-banner"><Sparkles size={17}/><span>In-app Simcaster social feed active — post, reply, quote, like & recast directly below.</span></div>}
     <div className="feed-grid"><div className="feed-main">
       <form className="inline-feed-composer" onSubmit={publish}>
         <div className="composer-byline"><AvatarBubble name={user.displayName} image={user.avatarUrl} color={user.avatar?.color}/>
-          <div><b>{user.displayName}</b><small>{replyTarget?'Replying to @'+replyTarget.author?.username:quoteTarget?'Quoting @'+quoteTarget.author?.username:'Share what’s happening in your world'}</small></div>
+          <div><b>{user.displayName}</b><small>{replyTarget?'Replying to @'+replyTarget.author?.username:quoteTarget?'Quoting @'+quoteTarget.author?.username:channelFilter?`Posting to /${channelFilter} channel`:'Share what’s happening in your world'}</small></div>
           {(replyTarget||quoteTarget)&&<button type="button" onClick={()=>{setReplyTarget(null);setQuoteTarget(null);}} aria-label="Cancel reply or quote">×</button>}
         </div>
         {quoteTarget&&<div className="thread-reply" style={{marginBottom:8,borderLeft:'3px solid #9871f1',paddingLeft:10}}>
           <b>Quoting @{quoteTarget.author?.username||'farcaster'}</b>
           <p style={{margin:'2px 0 0'}}>{quoteTarget.text}</p>
         </div>}
-        <textarea id="feed-compose" value={composeText} maxLength={320} onChange={e=>setComposeText(e.target.value)} placeholder={replyTarget?'Write your reply…':quoteTarget?'Add your thoughts to this quote cast…':'What’s happening in your world?'} rows={2}/>
-        <div className="composer-actions"><span>{composeText.length}/320 · In-app writes active (+2 Clout)</span>
-          <button className="primary-btn" type="submit" disabled={busy||!composeText.trim()}>{busy?'Publishing…':replyTarget?'Reply':quoteTarget?'Quote cast':'Post cast'}</button>
+        <textarea id="feed-compose" value={composeText} maxLength={320} onChange={e=>setComposeText(e.target.value)} placeholder={replyTarget?'Write your reply…':quoteTarget?'Add your thoughts to this quote cast…':channelFilter?`Share what's happening in /${channelFilter}…`:'What’s happening in your world?'} rows={2}/>
+        <div className="composer-actions"><span>{composeText.length}/320 · {channelFilter?`Channel: /${channelFilter}`:'Global feed'} (+2 Clout)</span>
+          <button className="primary-btn" type="submit" disabled={busy||!composeText.trim()}>{busy?'Publishing…':replyTarget?'Reply':quoteTarget?'Quote cast':channelFilter?`Post to /${channelFilter}`:'Post cast'}</button>
         </div>
       </form>
-      <div className="feed-tabs"><button className={mode==='trending'?'selected':''} onClick={()=>setMode('trending')}>For you <Sparkles size={14}/></button><button className={mode==='following'?'selected':''} onClick={()=>setMode('following')}>Following</button><div className="feed-search"><Search size={16}/><input aria-label="Filter visible casts" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter posts"/></div></div>
+      <div className="feed-tabs" style={{flexWrap:'wrap',gap:8}}>
+        <button className={mode==='trending'&&!channelFilter?'selected':''} onClick={()=>{setChannelFilter('');setMode('trending');}}>For you <Sparkles size={14}/></button>
+        <button className={mode==='following'&&!channelFilter?'selected':''} onClick={()=>{setChannelFilter('');setMode('following');}}>Following</button>
+        {CHANNELS.filter(ch=>ch.id).map(ch=>(
+          <button key={ch.id} className={channelFilter===ch.id?'selected':''} onClick={()=>setChannelFilter(channelFilter===ch.id?'':ch.id)}>{ch.label}</button>
+        ))}
+        <div className="feed-search"><Search size={16}/><input aria-label="Filter visible casts" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Filter posts"/></div>
+      </div>
       {error&&<div className="inline-error"><p>{error}</p><button onClick={()=>load()}>Retry <RefreshCw size={15}/></button></div>}
       {loading&&!casts.length&&<div className="loading-state"><div className="spinner"/> Loading the conversation…</div>}
       {visible.map(c=>{const local=localReactions[c.hash]||{};
@@ -378,8 +396,9 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
         const recasted=local.recast!==undefined?local.recast:!!c.viewer_context?.recasted;
         const likes=(c.reactions?.likes_count||0)+(local.like!==undefined?(Number(local.like)-Number(!!c.viewer_context?.liked)):0);
         const recasts=(c.reactions?.recasts_count||0)+(local.recast!==undefined?(Number(local.recast)-Number(!!c.viewer_context?.recasted)):0);
+        const chTag=typeof c.channel==='string'?c.channel:c.channel?.id;
         return <article className="cast-card" key={c.hash}>
-          <div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div><b>{c.author?.display_name || 'Farcaster user'}</b><span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button title="Read conversation here" onClick={()=>openThread(c)} aria-label="Open conversation"><MessageCircle size={18}/></button></div>
+          <div className="cast-head"><AvatarBubble name={c.author?.display_name || c.author?.username} image={c.author?.pfp_url}/><div className="cast-author"><div style={{display:'flex',alignItems:'center',gap:6}}><b>{c.author?.display_name || 'Farcaster user'}</b>{(c.author?.power_badge||c.author?.powerBadge)&&<span title="Power Badge" style={{color:'#8a63d2',fontSize:12}}>🟣</span>}{chTag&&<span style={{fontSize:11,padding:'1px 7px',borderRadius:99,background:'rgba(138,99,210,0.14)',color:'#8a63d2',fontWeight:700}}>/{chTag}</span>}<span>· {formatTime(c.timestamp)}</span></div><small>@{c.author?.username||'unknown'}</small></div><button title="Read conversation here" onClick={()=>openThread(c)} aria-label="Open conversation"><MessageCircle size={18}/></button></div>
           <p className="cast-text">{c.text}</p>
           {c.quote_cast&&<div className="thread-reply" style={{margin:'8px 0',borderLeft:'3px solid #9871f1',paddingLeft:10,background:'rgba(152,113,241,0.08)',borderRadius:8,padding:'8px 12px'}}>
             <b>@{c.quote_cast.username||'farcaster'}</b>
@@ -439,7 +458,7 @@ function SocialFeed({user,onUserUpdate,notify,writeClientId}) {
       {cursor&&<button className="secondary-btn load-more" disabled={loading} onClick={()=>load(mode,true,cursor)}>{loading?'Loading…':'Load more casts'} <ArrowRight size={16}/></button>}
     </div>
     <aside className="feed-aside">
-      <div className="aside-card violet-aside"><span className="eyebrow">YOUR SPACE</span><h3>People, not just posts.</h3><p>One Farcaster identity across your feed and 3D world.</p><span className="aside-decoration">✳</span></div>
+      <div className="aside-card violet-aside"><span className="eyebrow">YOUR SPACE</span><h3>People, not just posts.</h3><p>One Farcaster identity across your feed and 3D channels.</p><span className="aside-decoration">✳</span></div>
       <div className="aside-card">
         <h3>Simcaster Social</h3>
         <p>Your account can post, reply, quote, like, and recast directly inside Simcaster.</p>
@@ -473,7 +492,7 @@ function Profile({user,onUser,notify}) {
         <React.Suspense fallback={<div className="diorama-fallback">Loading 3D avatar…</div>}><SimDiorama avatar={avatar} variant="avatar"/></React.Suspense>
         <div className="character-name"><b>{user.displayName}</b><span>{user.demo?'demo player':'@'+user.username}</span></div>
       </div>
-      <div className="customize-card"><div className="customize-title"><Palette size={21}/><div><h3>Make it yours</h3><p>Choose your look for the plaza and arcade.</p></div></div>
+      <div className="customize-card"><div className="customize-title"><Palette size={21}/><div><h3>Make it yours</h3><p>Choose your look for the channels and arcade.</p></div></div>
         <div className="customize-group"><label>YOUR COLOUR</label><div className="palette-row">{PALETTES.map(c=><button key={c.id} aria-label={c.label} title={c.label} className={'swatch '+(avatar.color===c.id?'selected':'')} style={{background:c.hex}} onClick={()=>setAvatar({...avatar,color:c.id})}>{avatar.color===c.id&&<Check size={18}/>}</button>)}</div></div>
         <div className="customize-group"><label>OUTFIT STYLE</label><div className="option-grid">{CLOTHES.map(c=><button key={c} className={avatar.outfit===c?'selected':''} onClick={()=>setAvatar({...avatar,outfit:c})}>{c}</button>)}</div></div>
         <div className="customize-group"><label>HAIR STYLE</label><div className="option-grid">{HAIR.map(h=><button key={h} className={avatar.hair===h?'selected':''} onClick={()=>setAvatar({...avatar,hair:h})}>{h}</button>)}</div></div>
@@ -542,11 +561,11 @@ function FriendsPage({user,notify,onWorld,onVisit}){
   return <div className="page-content">
     <div className="section-heading page-heading">
       <div><span className="eyebrow">GOOD COMPANY MAKES THE WORLD</span><h2>Your people, your little universe.</h2><p>Friendships here are private Simcaster connections, separate from Farcaster follows.</p></div>
-      <button className="primary-btn" onClick={onWorld}><Compass size={16}/> Meet players <ArrowRight size={17}/></button>
+      <button className="primary-btn" onClick={onWorld}><Compass size={16}/> Explore Channels <ArrowRight size={17}/></button>
     </div>
     <div className="friends-tabs">{options.map(o=><button key={o.key} className={tab===o.key?'active':''} onClick={()=>setTab(o.key)}>{o.label}<span>{entries.filter(e=>e.status===o.key).length}</span></button>)}</div>
     <div className="friends-list">{loading?<div className="loading-state"><div className="spinner"/> Loading friends…</div>:filtered.length===0?
-      <div className="empty-state">Nothing here yet. Visit the Plaza, click someone’s avatar, and choose Add friend.</div>:
+      <div className="empty-state">Nothing here yet. Visit the 3D Channels, click someone’s avatar, and choose Add friend.</div>:
       filtered.map(friend=><div className="friend-card" key={friend.fid}>
         <AvatarBubble name={friend.displayName} color={friend.avatar?.color||'violet'}/>
         <div className="friend-name"><strong>{friend.displayName}</strong><small>@{friend.username||('fid-'+friend.fid)}</small></div>
@@ -555,7 +574,7 @@ function FriendsPage({user,notify,onWorld,onVisit}){
           <button disabled={busy} className="secondary-btn" onClick={()=>action(friend.fid,'remove')}>{friend.status==='friends'?'Remove':friend.status==='sent'?'Cancel':'Decline'}</button></div>
       </div>)}
     </div>
-    <div className="friends-helper"><Users size={19}/><div><strong>Connections happen in the world.</strong><p>Walk up to another avatar in the Plaza, click them and send a friend request. The other player can accept it here.</p></div></div>
+    <div className="friends-helper"><Users size={19}/><div><strong>Connections happen in the channels.</strong><p>Walk up to another avatar in any 3D channel (/farcaster, /dev, /memes, /base), click them and send a friend request.</p></div></div>
   </div>;
 }
 function SettingsPage({user,config,onLogout}){
@@ -565,10 +584,12 @@ function App(){
   const [config,setConfig]=useState({demoMode:false,liveFeed:false});
   const [user,setUser]=useState(null),[loading,setLoading]=useState(true);
   const [visitingFid,setVisitingFid]=useState(null);
+  const [targetChannel,setTargetChannel]=useState('farcaster');
   const [phoneOpen,setPhoneOpen]=useState(false);
   const [phoneApp,setPhoneApp]=useState('jobs');
   function openPhone(appId='jobs'){setPhoneApp(appId);setPhoneOpen(true);}
   function navigate(id){if(id==='home-space')setVisitingFid(null);setTab(id);}
+  function enterChannel(ch='farcaster'){setTargetChannel(ch);setTab('world');}
   const [tab,setTab]=useState(()=>{const room=new URLSearchParams(location.search).get('join')||'';return room.startsWith('arena:')?'arena':room.startsWith('plaza:')?'world':'home';}),[toast,setToast]=useState(''),[mobileNav,setMobileNav]=useState(false);
   const [stats,setStats]=useState({players:0,rooms:0}),[leaderboard,setLeaderboard]=useState([]);
   const notify=useCallback(message=>setToast(message),[]);
@@ -615,9 +636,9 @@ function App(){
       <Sidebar tab={tab} onTab={navigate} user={user} config={config} stats={stats} onLogout={logout} openMobile={mobileNav} setOpenMobile={setMobileNav}/>
       <div className="main-shell"><Topbar user={user} tab={tab} stats={stats} openMenu={()=>setMobileNav(true)} onTab={navigate} onOpenPhone={openPhone}/>
       {user.demo&&<div className="demo-strip"><span>◈</span> DEMO MODE — your identity is local and your social feed contains sample content. <span>Not a live Farcaster account.</span></div>}
-      {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab} onOpenPhone={openPhone}/>:
+      {tab==='home'?<Dashboard user={user} config={config} stats={stats} onTab={setTab} onOpenPhone={openPhone} onEnterChannel={enterChannel}/>:
         tab==='feed'?<SocialFeed user={user} onUserUpdate={setUser} notify={notify} writeClientId={config.writeClientId}/>:
-        tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D plaza…</div>}><WorldView user={user} onUserUpdate={setUser} kind="plaza" onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
+        tab==='world'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening 3D channels…</div>}><WorldView user={user} onUserUpdate={setUser} kind="plaza" initialChannel={targetChannel} onBack={()=>setTab('home')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
         tab==='arena'?<React.Suspense fallback={<div className="world-loading"><div className="spinner"/> Opening the 3D arena…</div>}><WorldView user={user} onUserUpdate={setUser} kind="arena" onBack={()=>setTab('arcade')} onArcade={()=>setTab('arcade')} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}}/></React.Suspense>:
         tab==='arcade'?<Arcade onPlay={()=>setTab('arena')} leaderboard={leaderboard}/>:
         tab==='profile'?<Profile user={user} onUser={setUser} notify={notify}/>:
@@ -628,7 +649,7 @@ function App(){
       <React.Suspense fallback={null}>
         <CastPhone open={phoneOpen} onClose={()=>setPhoneOpen(false)} user={user} onUserUpdate={setUser} notify={notify} initialApp={phoneApp} onVisitHome={fid=>{setVisitingFid(fid);setTab('home-space');}} onGoHome={()=>{setVisitingFid(null);setTab('home-space');}} onGoPlaza={()=>setTab('world')}/>
       </React.Suspense>
-      <nav className="mobile-bottom-nav">{nav.slice(0,5).map(item=>{const Icon=item.icon;return <button key={item.id} className={tab===item.id?'active':''} onClick={()=>setTab(item.id)}><Icon size={21}/><small>{item.id==='home'?'Home':item.id==='feed'?'Feed':item.id==='world'?'World':item.id==='arcade'?'Games':'Me'}</small></button>;})}</nav>
+      <nav className="mobile-bottom-nav">{nav.slice(0,5).map(item=>{const Icon=item.icon;return <button key={item.id} className={tab===item.id?'active':''} onClick={()=>setTab(item.id)}><Icon size={21}/><small>{item.id==='home'?'Home':item.id==='feed'?'Feed':item.id==='world'?'Channels':item.id==='arcade'?'Games':'Me'}</small></button>;})}</nav>
     </div>}
     <Toast message={toast} onClose={()=>setToast('')}/>
   </AuthKitProvider>;

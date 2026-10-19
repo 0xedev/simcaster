@@ -50,7 +50,7 @@ export default function SimDiorama({avatar={},variant='town',onExplore,onArcade,
   const [supported]=useState(()=>{try{return Boolean(document.createElement('canvas').getContext('webgl2'));}catch{return false;}});
   if(!supported)return <div className="diorama-fallback" aria-label="3D preview unavailable">
     <span aria-hidden="true">🌳 🏘️ ✨</span><p>Jump into your world</p>
-    {onExplore&&<button onClick={onExplore}>Explore plaza →</button>}
+    {onExplore&&<button onClick={onExplore}>Explore Channels →</button>}
   </div>;
   return <div className={'sim-diorama sim-diorama-'+variant} aria-label={variant==='town'?'Interactive 3D village preview':'Rotating 3D character preview'}>
     <Canvas dpr={[1,1.5]} camera={{position:variant==='town'?[10,12,14]:[0,1.55,5.7],fov:variant==='town'?35:38,near:.1,far:100}} gl={{antialias:true,powerPreference:'default'}} shadows={false}>
