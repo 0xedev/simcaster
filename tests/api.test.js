@@ -59,6 +59,64 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     const update=await fetch(origin+'/api/me/avatar',{method:'PUT',headers:{origin,cookie,'content-type':'application/json'},
       body:JSON.stringify({color:'mint',outfit:'sport',hair:'curls'})});
     assert.equal(update.status,200);
+    const catalogRes=await fetch(origin+'/api/catalog',{headers:{cookie}});
+    assert.equal(catalogRes.status,200);
+    const catalogData=await catalogRes.json();
+    assert.ok(Array.isArray(catalogData.furniture) && catalogData.furniture.length>=12);
+    assert.ok(Array.isArray(catalogData.quests) && catalogData.quests.length===3);
+    const interactRes=await post('/world/interact',{hotspotId:'foundry-hub'},cookie);
+    assert.equal(interactRes.status,200);
+    const interactData=await interactRes.json();
+    assert.ok(interactData.user.creds>250);
+    await post('/world/interact',{hotspotId:'power-grid'},cookie);
+    const claimRes=await post('/quests/claim',{questId:'hustle_shifts'},cookie);
+    assert.equal(claimRes.status,200);
+    const buyRes=await post('/shop/furniture',{type:'work_desk'},cookie);
+    assert.equal(buyRes.status,200);
+    const cityRes=await fetch(origin+'/api/city',{headers:{cookie}});
+    assert.equal(cityRes.status,200);
+    // In-app Farcaster social actions: post cast, quote cast (requote), reply, like, recast
+    const castRes=await post('/casts',{text:'Hello Simcaster Plaza!'},cookie);
+    assert.equal(castRes.status,201);
+    const createdCast=(await castRes.json()).cast;
+    assert.ok(createdCast.hash.startsWith('0x'));
+    const quoteRes=await post('/casts',{
+      text:'Quoting my own cast right inside Simcaster!',
+      quote:{hash:createdCast.hash,fid:user.user.fid,username:user.user.username,text:createdCast.text}
+    },cookie);
+    assert.equal(quoteRes.status,201);
+    const quotedCast=(await quoteRes.json()).cast;
+    assert.equal(quotedCast.quote_cast.hash,createdCast.hash);
+    const replyRes=await post('/casts',{text:'First reply in-app!',parent:createdCast.hash},cookie);
+    assert.equal(replyRes.status,201);
+    const likeRes=await post('/reactions',{hash:createdCast.hash,type:'like',remove:false},cookie);
+    assert.equal(likeRes.status,200);
+    const recastRes=await post('/reactions',{hash:createdCast.hash,type:'recast',remove:false},cookie);
+    assert.equal(recastRes.status,200);
+    const feedRes=await(await fetch(origin+'/api/feed?mode=trending',{headers:{cookie}})).json();
+    const foundRoot=feedRes.casts.find(c=>c.hash===createdCast.hash);
+    assert.ok(foundRoot);
+    assert.equal(foundRoot.reactions.likes_count,1);
+    assert.equal(foundRoot.reactions.recasts_count,1);
+    assert.equal(foundRoot.replies.count,1);
+    const convoRes=await(await fetch(origin+'/api/casts/'+createdCast.hash+'/conversation',{headers:{cookie}})).json();
+    assert.equal(convoRes.conversation.direct_replies.length,1);
+    assert.equal(convoRes.conversation.direct_replies[0].text,'First reply in-app!');
+    // Auto-provisioned inline QR managed signer flow
+    const createSignerRes=await post('/me/signer/create',{},cookie);
+    assert.equal(createSignerRes.status,201);
+    const signerData=await createSignerRes.json();
+    assert.equal(signerData.status,'approved');
+    assert.ok(signerData.qrDataUrl.startsWith('data:image/png;base64,'));
+    assert.ok(signerData.approvalUrl.includes('signed-key-request'));
+    // Polling triggers approval
+    const pollRes=await(await fetch(origin+'/api/me/signer?poll=1',{headers:{cookie}})).json();
+    assert.equal(pollRes.hubSynced,true);
+    // Delete resets signer
+    const deleteSignerRes=await fetch(origin+'/api/me/signer',{method:'DELETE',headers:{origin,cookie}});
+    assert.equal(deleteSignerRes.status,200);
+    const resetRes=await(await fetch(origin+'/api/me/signer',{headers:{cookie}})).json();
+    assert.equal(resetRes.hubSynced,false);
     const login2=await post('/auth/demo',{name:'Bob'});
     const cookie2=login2.headers.get('set-cookie').split(';')[0];
     const secondUser=(await login2.json()).user;
@@ -88,6 +146,7 @@ test('demo login, avatar persistence, origin checks and 2-player realtime world'
     second=await openSocket('ws://localhost:'+port+'/socket?room=plaza',cookie2,origin);
     const snapshot=await waitPacket(first,'snapshot',d=>d.players.length===2);
     assert.equal(snapshot.players.length,2);
+    assert.ok(Array.isArray(snapshot.npcs) && snapshot.npcs.length===3);
     assert.ok(snapshot.players.find(p=>p.name==='Alice' && p.avatar.color==='mint'));
     second.send(JSON.stringify({event:'chat',data:{text:'Hello from Bob'}}));
     const chat=await waitPacket(first,'chat',d=>d.text==='Hello from Bob');

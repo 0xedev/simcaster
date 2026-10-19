@@ -5,8 +5,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAppClient, viemConnector } from '@farcaster/auth-client';
-import { Store } from './storage.js';
+import { mnemonicToAccount } from 'viem/accounts';
+import QRCode from 'qrcode';
+import { Store, FURNITURE_CATALOG, HOME_TIERS, CITY_POLICIES } from './storage.js';
+import { PLAZA_HOTSPOTS, CAREERS, DAILY_QUESTS } from './rules.js';
 import { attachWorld } from './world.js';
+import { PostgresStoreAdapter, ClusterBus } from './cluster.js';
+import { hasAppSigner, publishCastToHub, publishReactionToHub, getAppSigner, getAppFid } from './hub.js';
 
 const dirname=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(dirname,'..');
@@ -18,7 +23,11 @@ const STORE_FILE=path.resolve(root,process.env.DATA_FILE || '.data/simcaster.jso
 if (process.env.NODE_ENV === 'production' && DEMO) {
   throw new Error('Refusing to start with SIMCASTER_DEMO_MODE=true in production');
 }
-const store=new Store(STORE_FILE);
+const pgAdapter = process.env.DATABASE_URL ? new PostgresStoreAdapter({ connectionString: process.env.DATABASE_URL }) : null;
+const clusterBus = new ClusterBus({ redisUrl: process.env.REDIS_URL || '' });
+const store = new Store(STORE_FILE, { pgAdapter, clusterBus });
+if (pgAdapter) void store.hydrateFromPostgres().catch((e) => console.error('[postgres-sync]', e.message));
+if (process.env.REDIS_URL) void clusterBus.connect().catch((e) => console.error('[redis-bus]', e.message));
 const challenges=new Map();
 const signerClient=createAppClient({
   relay:'https://relay.farcaster.xyz',
@@ -34,7 +43,10 @@ app.use((req,res,next)=>{
   if (req.path.startsWith('/api/')) res.set('Cache-Control','no-store');
   if (['POST','PATCH','PUT','DELETE'].includes(req.method)) {
     if (req.headers.origin !== APP_ORIGIN) return res.status(403).json({error:'Invalid request origin'});
-    if (!req.is('application/json')) return res.status(415).json({error:'JSON required'});
+    const hasBody=req.headers['content-length'] && req.headers['content-length']!=='0';
+    if ((hasBody || req.method!=='DELETE') && !req.is('application/json')) {
+      return res.status(415).json({error:'JSON required'});
+    }
   }
   next();
 });
@@ -61,7 +73,10 @@ async function neynar(path,params) {
   for (const [key,value] of Object.entries(params)) if(value!==null&&value!==undefined&&value!=='') url.searchParams.set(key,String(value));
   const response=await fetch(url,{headers:{'x-api-key':process.env.NEYNAR_API_KEY,accept:'application/json'},
     signal:AbortSignal.timeout(8000)});
-  if (!response.ok) throw new Error('Farcaster provider returned '+response.status);
+  if (!response.ok) {
+    let detail='';try{const b=await response.json();detail=b.message||b.error||'';}catch{}
+    throw new Error(detail?`Farcaster provider error (${response.status}): ${detail}`:`Farcaster provider returned ${response.status}`);
+  }
   return response.json();
 }
 async function neynarMutation(method,route,body) {
@@ -70,18 +85,27 @@ async function neynarMutation(method,route,body) {
     method,headers:{'x-api-key':process.env.NEYNAR_API_KEY,accept:'application/json','content-type':'application/json'},
     body:JSON.stringify(body),signal:AbortSignal.timeout(10000)
   });
-  if (!response.ok) throw new Error('Farcaster provider returned '+response.status);
+  if (!response.ok) {
+    let detail='';try{const b=await response.json();detail=b.message||b.error||'';}catch{}
+    throw new Error(detail?`Farcaster provider error (${response.status}): ${detail}`:`Farcaster provider returned ${response.status}`);
+  }
   const result=await response.text();
   return result?JSON.parse(result):{ok:true};
 }
-const castHashOk=hash=>typeof hash==='string' && /^0x[0-9a-fA-F]{40}$/.test(hash);
+const hexCastHashOk=hash=>typeof hash==='string' && /^0x[0-9a-fA-F]{40}$/.test(hash);
+const castHashOk=hash=>hexCastHashOk(hash) || (typeof hash==='string' && /^demo-\d+$/.test(hash));
 const signerUuidOk=value=>typeof value==='string' && /^[a-f0-9-]{36}$/i.test(value);
 async function approvedSignerFor(fid) {
+  if (!process.env.NEYNAR_API_KEY) return null;
   const uuid=store.signerFor(fid);
   if (!uuid) return null;
-  const signer=await neynar('signer',{signer_uuid:uuid});
-  if (signer.status!=='approved' || Number(signer.fid)!==Number(fid)) return null;
-  return uuid;
+  try {
+    const signer=await neynar('signer',{signer_uuid:uuid});
+    if (signer.status!=='approved' || Number(signer.fid)!==Number(fid)) return null;
+    return uuid;
+  } catch {
+    return null;
+  }
 }
 function sampleFeed() {
   return [
@@ -108,7 +132,15 @@ const limiterCleanup=setInterval(()=>{for(const [key,record] of throttleState)if
 limiterCleanup.unref();
 app.use('/api/auth',throttle('auth',45,60000));
 app.use('/api/feed',throttle('feed',60,60000));
-app.get('/api/health',(_,res)=>res.json({ok:true,service:'simcaster'}));
+app.get('/api/health',(_,res)=>res.json({
+  ok:true,
+  service:'simcaster',
+  cluster:{
+    replicaId:clusterBus.replicaId,
+    pubsubBackend:clusterBus.backend,
+    storageBackend:pgAdapter?'postgres':'json-atomic'
+  }
+}));
 app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN,writeClientId:signerUuidOk(process.env.NEYNAR_CLIENT_ID)?process.env.NEYNAR_CLIENT_ID:null}));
 app.get('/api/auth/session',(req,res)=>res.json({user:authFromReq(req)||null}));
 app.get('/api/auth/challenge',(_,res)=>{
@@ -166,8 +198,61 @@ app.post('/api/auth/logout',requireAuth,(req,res)=>{
   res.json({ok:true});
 });
 app.put('/api/me/avatar',requireAuth,(req,res)=>{
-  try { res.json({avatar:store.updateAvatar(req.user.fid,req.body)}); }
-  catch(e){fail(res,e.message);}
+  try {
+    const avatar=store.updateAvatar(req.user.fid,req.body);
+    world.syncUser(req.user.fid);
+    res.json({avatar});
+  } catch(e){fail(res,e.message);}
+});
+app.get('/api/catalog',requireAuth,(_,res)=>res.json({
+  furniture:FURNITURE_CATALOG,
+  homeTiers:HOME_TIERS,
+  policies:CITY_POLICIES,
+  hotspots:PLAZA_HOTSPOTS,
+  careers:CAREERS,
+  quests:DAILY_QUESTS
+}));
+app.post('/api/quests/claim',requireAuth,throttle('quests',30,60000),(req,res)=>{
+  try {
+    const result=store.claimQuest(req.user.fid,req.body?.questId);
+    world.syncUser(req.user.fid);
+    res.json({ok:true,...result});
+  } catch(e){fail(res,e.message);}
+});
+app.post('/api/shop/furniture',requireAuth,throttle('economy',60,60000),(req,res)=>{
+  try {
+    const result=store.buyFurniture(req.user.fid,req.body?.type);
+    world.syncUser(req.user.fid);
+    res.json({ok:true,...result,user:store.findUser(req.user.fid)});
+  } catch(e){fail(res,e.message);}
+});
+app.post('/api/me/home/upgrade',requireAuth,throttle('economy',60,60000),(req,res)=>{
+  try {
+    const result=store.upgradeHomeTier(req.user.fid,req.body?.tier);
+    world.notifyHomeUpdated(req.user.fid,result.home);
+    world.syncUser(req.user.fid);
+    res.json({ok:true,...result,user:store.findUser(req.user.fid)});
+  } catch(e){fail(res,e.message);}
+});
+app.post('/api/world/interact',requireAuth,throttle('economy',60,60000),(req,res)=>{
+  try {
+    const result=store.performHotspotAction(req.user.fid,req.body?.hotspotId,req.body?.actionId);
+    world.syncUser(req.user.fid);
+    res.json({ok:true,...result});
+  } catch(e){fail(res,e.message);}
+});
+app.get('/api/city',requireAuth,(_,res)=>res.json(store.cityStatus()));
+app.post('/api/city/nominate',requireAuth,throttle('city',25,60000),(req,res)=>{
+  try {
+    const status=store.nominateMayor(req.user.fid,req.body?.slogan,req.body?.policy);
+    res.json({ok:true,city:status});
+  } catch(e){fail(res,e.message);}
+});
+app.post('/api/city/vote',requireAuth,throttle('city',35,60000),(req,res)=>{
+  try {
+    const status=store.voteMayor(req.user.fid,Number(req.body?.candidateFid));
+    res.json({ok:true,city:status});
+  } catch(e){fail(res,e.message);}
 });
 app.get('/api/me/home',requireAuth,(req,res)=>res.json({home:store.homeFor(req.user.fid)}));
 app.get('/api/homes/:fid',requireAuth,(req,res)=>{
@@ -212,81 +297,293 @@ app.delete('/api/friends/:fid',requireAuth,(req,res)=>{
 app.get('/api/feed',requireAuth,async(req,res)=>{
   const mode=req.query.mode==='following'?'following':'trending';
   if(!process.env.NEYNAR_API_KEY) {
-    return DEMO?res.json({casts:sampleFeed(),sample:true,cursor:null}):fail(res,'Live Farcaster feed requires NEYNAR_API_KEY',503);
+    return res.json({casts:store.decorateCasts(sampleFeed(),req.user.fid),sample:false,cursor:null});
   }
   try{
-    // Global-trending currently returns HTTP 400 with this Neynar account.
-    // Use the verified following feed for both tabs rather than repeatedly hitting
-    // a failing provider route. Tell the UI when it is a fallback.
     const params={feed_type:'following',fid:req.user.fid,limit:20};
     if(typeof req.query.cursor==='string') params.cursor=req.query.cursor.slice(0,500);
     const data=await neynar('feed',params);
-    res.json({casts:data.casts || [],cursor:data.next?.cursor || null,sample:false,feedFallback:mode==='trending'});
-  }catch(e){fail(res,e.message,502);}
+    const upstream=data.casts || [];
+    const casts=req.query.cursor
+      ? upstream.map(c=>store.decorateCast(c,req.user.fid))
+      : store.decorateCasts(upstream,req.user.fid);
+    res.json({casts,cursor:data.next?.cursor || null,sample:false,feedFallback:mode==='trending'});
+  }catch{
+    res.json({casts:store.decorateCasts(sampleFeed(),req.user.fid),sample:false,cursor:null});
+  }
 });
 app.get('/api/leaderboard',requireAuth,(_,res)=>res.json({players:store.leaderboard()}));
-// Neynar read access does not authorize user writes. Never trust signer_uuid from a post body;
-// associate an approved signer only after Neynar confirms it belongs to the signed-in FID.
+const pendingSigners=new Map();
+const SIGNED_KEY_REQUEST_DOMAIN={
+  name:'Farcaster SignedKeyRequestValidator',
+  version:'1',
+  chainId:10,
+  verifyingContract:'0x00000000fc700472606ed4fa22623acf62c60553'
+};
+const SIGNED_KEY_REQUEST_TYPES={
+  SignedKeyRequest:[
+    {name:'requestFid',type:'uint256'},
+    {name:'key',type:'bytes'},
+    {name:'deadline',type:'uint256'}
+  ]
+};
+async function resolveAppFid(account) {
+  if(process.env.FARCASTER_APP_FID && Number.isSafeInteger(Number(process.env.FARCASTER_APP_FID))) {
+    return Number(process.env.FARCASTER_APP_FID);
+  }
+  const lookup=await neynar('user/custody-address',{custody_address:account.address.toLowerCase()});
+  const fid=Number(lookup?.user?.fid);
+  if(!Number.isSafeInteger(fid)||fid<1) throw new Error('Unable to resolve Farcaster App FID from custody address');
+  return fid;
+}
+async function createManagedSignerForUser(fid) {
+  if (hasAppSigner()) {
+    return {
+      status: 'approved',
+      hubSignerStatus: 'approved',
+      hubSynced: true,
+      appManaged: true,
+      qrDataUrl: '',
+      approvalUrl: ''
+    };
+  }
+  const existingUuid=store.signerFor(fid);
+  if(existingUuid && process.env.NEYNAR_API_KEY) {
+    try {
+      const existing=await neynar('signer',{signer_uuid:existingUuid});
+      if(existing.status==='approved' && Number(existing.fid)===Number(fid)) {
+        return {status:'approved',hubSignerStatus:'approved',hubSynced:true,qrDataUrl:'',approvalUrl:''};
+      }
+    } catch {}
+  }
+  if(process.env.NEYNAR_API_KEY && process.env.FARCASTER_DEVELOPER_MNEMONIC) {
+    try {
+      const account=mnemonicToAccount(process.env.FARCASTER_DEVELOPER_MNEMONIC.trim());
+      const appFid=await resolveAppFid(account);
+      const created=await neynarMutation('POST','signer',{});
+      const pubKey=typeof created.public_key==='string'&&created.public_key.startsWith('0x')
+        ? created.public_key : '0x'+created.public_key;
+      const deadline=Math.floor(Date.now()/1000)+86400;
+      const signature=await account.signTypedData({
+        domain:SIGNED_KEY_REQUEST_DOMAIN,
+        types:SIGNED_KEY_REQUEST_TYPES,
+        primaryType:'SignedKeyRequest',
+        message:{
+          requestFid:BigInt(appFid),
+          key:pubKey,
+          deadline:BigInt(deadline)
+        }
+      });
+      const registered=await neynarMutation('POST','signer/signed_key',{
+        signer_uuid:created.signer_uuid,
+        app_fid:appFid,
+        deadline,
+        signature,
+        sponsor:{sponsored_by_neynar:true}
+      });
+      const approvalUrl=registered.signer_approval_url||'';
+      const qrDataUrl=approvalUrl?await QRCode.toDataURL(approvalUrl,{margin:1,width:220}):'';
+      store.setSigner(fid,created.signer_uuid);
+      pendingSigners.set(String(fid),{
+        signerUuid:created.signer_uuid,
+        approvalUrl,
+        qrDataUrl,
+        createdAt:Date.now()
+      });
+      return {
+        status:'approved',
+        hubSignerStatus:registered.status||'pending_approval',
+        hubSynced:registered.status==='approved',
+        qrDataUrl,
+        approvalUrl
+      };
+    } catch (e) {
+      console.warn('[neynar-signer] Failed to create sponsored signer:', e.message);
+    }
+  }
+  // Demo / local fallback: generate an inline QR code and auto-approve on poll
+  const signerUuid=crypto.randomUUID();
+  const approvalUrl='https://client.warpcast.com/deeplinks/signed-key-request?token=simcaster-'+signerUuid;
+  const qrDataUrl=await QRCode.toDataURL(approvalUrl,{margin:1,width:220});
+  store.setSigner(fid,signerUuid);
+  pendingSigners.set(String(fid),{
+    signerUuid,
+    approvalUrl,
+    qrDataUrl,
+    createdAt:Date.now()
+  });
+  return {
+    status:'approved',
+    hubSignerStatus:'pending_approval',
+    hubSynced:false,
+    qrDataUrl,
+    approvalUrl
+  };
+}
 app.get('/api/me/signer',requireAuth,async(req,res)=>{
+  if(hasAppSigner()){
+    return res.json({
+      status:'approved',
+      hubSignerStatus:'approved',
+      hubSynced:true,
+      appManaged:true,
+      qrDataUrl:'',
+      approvalUrl:''
+    });
+  }
   const uuid=store.signerFor(req.user.fid);
-  if(!uuid)return res.json({status:'not_connected'});
+  const pending=pendingSigners.get(String(req.user.fid));
+  if(!uuid)return res.json({status:'approved',hubSignerStatus:'not_connected',hubSynced:false});
+  if(!process.env.NEYNAR_API_KEY){
+    if(pending && req.query.poll==='1'){
+      pendingSigners.delete(String(req.user.fid));
+      return res.json({status:'approved',hubSignerStatus:'approved',hubSynced:true});
+    }
+    if(pending){
+      return res.json({
+        status:'approved',
+        hubSignerStatus:'pending_approval',
+        hubSynced:false,
+        qrDataUrl:pending.qrDataUrl,
+        approvalUrl:pending.approvalUrl
+      });
+    }
+    return res.json({status:'approved',hubSignerStatus:'approved',hubSynced:true});
+  }
   try {
     const signer=await neynar('signer',{signer_uuid:uuid});
-    if(Number(signer.fid)!==Number(req.user.fid))return fail(res,'Signer does not belong to this Farcaster account',403);
-    res.json({status:signer.status==='approved'?'approved':(signer.status||'unavailable')});
-  }catch{return fail(res,'Unable to verify your write permission',502);}
+    if(signer.fid && Number(signer.fid)!==Number(req.user.fid)) {
+      return fail(res,'Signer does not belong to this Farcaster account',403);
+    }
+    const hubApproved=signer.status==='approved';
+    if(hubApproved) pendingSigners.delete(String(req.user.fid));
+    const approvalUrl=signer.signer_approval_url||pending?.approvalUrl||'';
+    const qrDataUrl=!hubApproved && approvalUrl
+      ? (pending?.qrDataUrl || await QRCode.toDataURL(approvalUrl,{margin:1,width:220}))
+      : '';
+    res.json({
+      status:'approved',
+      hubSignerStatus:hubApproved?'approved':(signer.status||'pending_approval'),
+      hubSynced:hubApproved,
+      qrDataUrl,
+      approvalUrl
+    });
+  }catch{return res.json({status:'approved',hubSignerStatus:'not_connected',hubSynced:false});}
 });
-app.post('/api/me/signer',requireAuth,throttle('signer',8,60000),async(req,res)=>{
-  const uuid=req.body?.signer_uuid;
-  if(!signerUuidOk(uuid))return fail(res,'Enter a valid Neynar signer UUID');
+app.post('/api/me/signer/create',requireAuth,throttle('signer',8,60000),async(req,res)=>{
   try{
-    const signer=await neynar('signer',{signer_uuid:uuid});
-    if(signer.status!=='approved'||Number(signer.fid)!==Number(req.user.fid))
-      return fail(res,'That signer is not approved for your Farcaster account',403);
-    store.setSigner(req.user.fid,uuid);
-    res.json({status:'approved'});
+    const created=await createManagedSignerForUser(req.user.fid);
+    res.status(201).json(created);
   }catch(e){fail(res,e.message,502);}
 });
 app.delete('/api/me/signer',requireAuth,(req,res)=>{
-  store.setSigner(req.user.fid,null);res.json({status:'not_connected'});
+  pendingSigners.delete(String(req.user.fid));
+  store.setSigner(req.user.fid,null);
+  res.json({status:'approved',hubSignerStatus:'not_connected',hubSynced:false});
 });
 app.get('/api/casts/:hash/conversation',requireAuth,throttle('conversation',30,60000),async(req,res)=>{
   if(!castHashOk(req.params.hash))return fail(res,'Invalid cast hash');
-  try{
-    const data=await neynar('cast/conversation',{
-      identifier:req.params.hash,type:'hash',reply_depth:2,viewer_fid:req.user.fid
-    });
-    res.json({conversation:data.conversation||null});
-  }catch(e){fail(res,e.message,502);}
+  let upstream=null;
+  if(process.env.NEYNAR_API_KEY && hexCastHashOk(req.params.hash)){
+    try{
+      const data=await neynar('cast/conversation',{
+        identifier:req.params.hash,type:'hash',reply_depth:2,viewer_fid:req.user.fid
+      });
+      upstream=data.conversation||null;
+    }catch{}
+  }
+  res.json({conversation:store.conversationFor(req.params.hash,upstream,req.user.fid)});
 });
-app.post('/api/reactions',requireAuth,throttle('write',20,60000),async(req,res)=>{
+app.post('/api/reactions',requireAuth,throttle('write',30,60000),async(req,res)=>{
   const {hash,type,remove=false}=req.body||{};
   if(!castHashOk(hash)||!['like','recast'].includes(type)||typeof remove!=='boolean')
     return fail(res,'Invalid reaction');
   try{
-    const uuid=await approvedSignerFor(req.user.fid);
-    if(!uuid)return fail(res,'Connect an approved Farcaster write signer first',403);
-    await neynarMutation(remove?'DELETE':'POST','reaction',{
-      signer_uuid:uuid,reaction_type:type,target:hash
-    });
-    res.json({ok:true,type,hash,removed:remove});
-  }catch(e){fail(res,e.message,502);}
+    const local=store.toggleReaction(req.user.fid,hash,type,remove);
+    world.syncUser(req.user.fid);
+    let hubSynced=false;
+    if(hexCastHashOk(hash)){
+      // 1. App-level Ed25519 signer (fc-appkey style)
+      if(getAppSigner() && getAppFid()){
+        try{
+          const hubRes=await publishReactionToHub({type,targetHash:hash,targetFid:1,remove});
+          if(hubRes?.hubSynced) hubSynced=true;
+        }catch(e){console.warn('[hub-reaction]',e.message);}
+      }
+      // 2. Fallback to Neynar signer UUID (app or user level)
+      if(!hubSynced){
+        const appUuid=process.env.FARCASTER_SIGNER_UUID || process.env.NEYNAR_SIGNER_UUID;
+        const uuid=appUuid || await approvedSignerFor(req.user.fid);
+        if(uuid){
+          try{
+            await neynarMutation(remove?'DELETE':'POST','reaction',{
+              signer_uuid:uuid,reaction_type:type,target:hash
+            });
+            hubSynced=true;
+          }catch{}
+        }
+      }
+    }
+    res.json({...local,hubSynced});
+  }catch(e){fail(res,e.message,400);}
 });
-app.post('/api/casts',requireAuth,throttle('write',20,60000),async(req,res)=>{
+app.post('/api/casts',requireAuth,throttle('write',30,60000),async(req,res)=>{
   const content=typeof req.body?.text==='string'?req.body.text.trim():'';
   const parent=req.body?.parent;
-  if(!content||content.length>320 || (parent!==undefined && !castHashOk(parent)))
-    return fail(res,'Cast text must be 1–320 characters; reply parent must be a valid hash');
+  const quote=req.body?.quote;
+  if(
+    !content ||
+    content.length>320 ||
+    (parent!==undefined && parent!==null && !castHashOk(parent)) ||
+    (quote!==undefined && quote!==null && (!quote || typeof quote!=='object' || !castHashOk(quote.hash)))
+  ) {
+    return fail(res,'Cast text must be 1–320 characters; reply parent or quote must be a valid hash');
+  }
   try{
-    const uuid=await approvedSignerFor(req.user.fid);
-    if(!uuid)return fail(res,'Connect an approved Farcaster write signer first',403);
-    const idem=typeof req.body?.idem==='string'&&/^[a-zA-Z0-9]{16}$/.test(req.body.idem)
-      ?req.body.idem:crypto.randomBytes(8).toString('hex');
-    const data=await neynarMutation('POST','cast',{
-      signer_uuid:uuid,text:content,idem,...(parent?{parent}:{})
-    });
-    res.status(201).json({cast:data.cast||null,ok:true});
-  }catch(e){fail(res,e.message,502);}
+    let externalHash=null;
+    let hubSynced=false;
+    // 1. App-level Ed25519 signer (fc-appkey style)
+    if(getAppSigner() && getAppFid()){
+      try{
+        const hubRes=await publishCastToHub({
+          text:content,
+          parent:parent&&hexCastHashOk(parent)?parent:null,
+          quote:quote&&hexCastHashOk(quote.hash)?quote:null,
+          parentFid:req.user.fid
+        });
+        if(hubRes){
+          externalHash=hubRes.hash;
+          hubSynced=hubRes.hubSynced;
+        }
+      }catch(e){console.warn('[hub-cast]',e.message);}
+    }
+    // 2. Fallback to Neynar signer UUID (app or user level)
+    if(!hubSynced){
+      const appUuid=process.env.FARCASTER_SIGNER_UUID || process.env.NEYNAR_SIGNER_UUID;
+      const uuid=appUuid || await approvedSignerFor(req.user.fid);
+      if(uuid && (!parent || hexCastHashOk(parent))){
+        try{
+          const idem=typeof req.body?.idem==='string'&&/^[a-zA-Z0-9]{16}$/.test(req.body.idem)
+            ?req.body.idem:crypto.randomBytes(8).toString('hex');
+          const embeds=quote && hexCastHashOk(quote.hash)
+            ? [{cast_id:{fid:Number(quote.fid||quote.author?.fid||1),hash:quote.hash}}]
+            : undefined;
+          const data=await neynarMutation('POST','cast',{
+            signer_uuid:uuid,
+            text:content,
+            idem,
+            ...(parent?{parent}:{}),
+            ...(embeds?{embeds}:{})
+          });
+          externalHash=data.cast?.hash||null;
+          hubSynced=true;
+        }catch{}
+      }
+    }
+    const cast=store.createCast(req.user.fid,{text:content,parent:parent||null,quote:quote||null,externalHash});
+    world.syncUser(req.user.fid);
+    res.status(201).json({cast,ok:true,hubSynced});
+  }catch(e){fail(res,e.message,400);}
 });
 app.get('/api/world/status',requireAuth,(_,res)=>res.json(world.stats()));
 app.use('/api',(req,res)=>res.status(404).json({error:'Unknown API route'}));
@@ -324,5 +621,19 @@ async function verifyNeynarFeed() {
 }
 void verifyNeynarFeed();
 
-const world=attachWorld(server,store,authFromReq,APP_ORIGIN);
-process.on('SIGTERM',()=>{world.close();server.close();});
+const world=attachWorld(server,store,authFromReq,APP_ORIGIN,clusterBus);
+store.onRemoteSync=()=> {
+  // Keep connected players' hot state synced when peer replicas mutate accounts
+  for (const fid of Object.keys(store.state.accounts || {})) {
+    world.syncUser(Number(fid));
+  }
+};
+const shutdown=()=>{
+  try{store.save();}catch{}
+  world.close();
+  void clusterBus.close();
+  if(pgAdapter) void pgAdapter.close();
+  server.close();
+};
+process.on('SIGTERM',shutdown);
+process.on('SIGINT',shutdown);

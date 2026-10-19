@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { movement, cleanChat, canHit, sanitizeRoom, SHOT_COOLDOWN_MS, collidesWithPlaza } from '../server/rules.js';
+import { movement, cleanChat, canHit, sanitizeRoom, SHOT_COOLDOWN_MS, collidesWithPlaza, collidesWithArena, lineBlockedByArena, careerForXp } from '../server/rules.js';
 test('movement is normalized, bounded and cannot teleport',()=>{
   const a=movement({dx:100,dz:100},10);
   assert.ok(Math.hypot(a.dx,a.dz)<=0.85);
@@ -30,3 +30,20 @@ test('plaza geometry blocks the fountain and buildings',()=>{
   assert.equal(collidesWithPlaza(-14,-13),true);
   assert.equal(collidesWithPlaza(5,5),false);
 });
+
+test('arena cover bunkers block movement and laser line-of-sight',()=>{
+  assert.equal(collidesWithArena(7.5,7.5),true);
+  assert.equal(collidesWithArena(0,0),false);
+  assert.equal(lineBlockedByArena(5,7.5,10,7.5),true);
+  assert.equal(lineBlockedByArena(0,0,0,5),false);
+  const shooter={id:1,x:5,z:7.5,heading:Math.PI/2,lastShot:0,hp:3};
+  const behindCover={id:2,x:10,z:7.5,hp:3};
+  assert.equal(canHit(shooter,behindCover,SHOT_COOLDOWN_MS+10),false);
+});
+
+test('career promotion scales with XP thresholds',()=>{
+  assert.equal(careerForXp(0).id,'newcomer');
+  assert.equal(careerForXp(150).id,'creator');
+  assert.equal(careerForXp(2500).id,'mogul');
+});
+

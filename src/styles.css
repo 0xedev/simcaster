@@ -148,3 +148,596 @@
 .signer-advanced{margin:13px 0}
 .signer-advanced summary{cursor:pointer;color:#7654ae;font-weight:800;font-size:11px}
 .signer-advanced .signer-form{margin-top:12px}
+
+/* Simcaster 2.0: Life-Sim HUD, CastPhone OS, Interactive Hotspots & Tactical Arena */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(18, 13, 33, 0.58);
+  backdrop-filter: blur(4px);
+}
+.castphone-dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  width: min(510px, 94vw);
+  max-height: 86vh;
+  border-radius: 26px;
+  box-shadow: 0 24px 65px rgba(17, 10, 35, 0.55);
+  color: #251c3b;
+}
+.castphone-frame {
+  background: #fdfbff;
+  border: 3px solid #2b2144;
+  border-radius: 26px;
+  display: flex;
+  flex-direction: column;
+  max-height: 84vh;
+  overflow: hidden;
+}
+.castphone-status {
+  background: linear-gradient(120deg, #21183b, #3a2766);
+  color: #fff;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.castphone-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  flex: 1;
+}
+.castphone-career {
+  background: rgba(255, 255, 255, 0.16);
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #e9dcff;
+}
+.castphone-wallet {
+  background: #5dd3ba;
+  color: #16332c;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 5px 11px;
+  border-radius: 10px;
+}
+.castphone-close {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+.castphone-needs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f3edfc;
+  border-bottom: 1px solid #e6dcf5;
+}
+.need-pill {
+  background: #fff;
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.need-bar {
+  height: 5px;
+  background: #ece6f5;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.need-bar > div {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.25s;
+}
+.castphone-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #ece6f6;
+  overflow-x: auto;
+}
+.castphone-tabs button {
+  flex: 1;
+  background: #f6f2fc;
+  color: #6f5d8f;
+  padding: 9px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.castphone-tabs button.active {
+  background: #7851de;
+  color: #fff;
+}
+.castphone-body {
+  padding: 14px 16px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+}
+.phone-section {
+  display: grid;
+  gap: 11px;
+}
+.phone-section-title {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: #8c78b0;
+  margin-top: 6px;
+}
+.phone-card {
+  background: #fff;
+  border: 1px solid #eae2f6;
+  border-radius: 14px;
+  padding: 13px 15px;
+}
+.highlight-card {
+  background: linear-gradient(125deg, #efe7ff, #e4f8f2);
+  border-color: #d6c5f7;
+}
+.phone-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.phone-card h4 {
+  margin: 4px 0 6px;
+  font-size: 15px;
+}
+.phone-card p {
+  font-size: 11px;
+  color: #625579;
+  line-height: 1.5;
+}
+.xp-badge {
+  background: #7851de;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 5px 10px;
+  border-radius: 99px;
+}
+.policy-banner {
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: #46326b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hotspot-list, .tier-grid, .shop-grid {
+  display: grid;
+  gap: 9px;
+}
+.hotspot-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.hotspot-emoji, .shop-emoji {
+  font-size: 24px;
+  width: 38px;
+  height: 38px;
+  background: #f5effe;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+}
+.hotspot-head small, .shop-info small {
+  display: block;
+  font-size: 11px;
+  color: #84779c;
+  margin-top: 2px;
+}
+.hotspot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.phone-btn-earn {
+  background: #7851de;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.phone-btn-spend {
+  background: #e9f8f1;
+  color: #26785d;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.phone-btn-secondary {
+  background: #eee7fc;
+  color: #613eb5;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.shop-item, .candidate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shop-info {
+  flex: 1;
+}
+.owned-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #3a9c7a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tier-current {
+  border-color: #7851de;
+  background: #f9f6ff;
+}
+.tier-actions {
+  margin-top: 8px;
+}
+.mayor-form {
+  display: grid;
+  gap: 8px;
+}
+.mayor-form input, .mayor-form select {
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid #dfd5f0;
+  font-size: 12px;
+  background: #fbf9ff;
+}
+.phone-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+  color: #827699;
+}
+.topbar-phone-btn, .castphone-trigger, .shop-unlock-btn {
+  background: linear-gradient(120deg, #7851de, #5a38b8) !important;
+  color: #fff !important;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 5px 16px rgba(95, 61, 184, 0.28);
+}
+.hero-cta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.stats-row-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.world-vitals-bar {
+  background: rgba(25, 19, 44, 0.9);
+  color: #fff;
+  padding: 9px 13px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+.vital-creds {
+  color: #6cdeb5;
+  font-weight: 900;
+}
+.hotspot-hud-card {
+  position: absolute;
+  bottom: 72px;
+  left: 20px;
+  z-index: 6;
+  background: rgba(255, 255, 255, 0.96);
+  border: 2px solid #9871f1;
+  border-radius: 16px;
+  padding: 14px 16px;
+  width: min(370px, 86vw);
+  box-shadow: 0 14px 36px rgba(24, 15, 48, 0.35);
+}
+.hotspot-hud-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #2b2046;
+}
+.hotspot-hud-head button {
+  background: #eee7fa;
+  color: #5f429c;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-weight: 900;
+}
+.hotspot-hud-card p {
+  font-size: 11px;
+  color: #6e6285;
+  margin: 6px 0 10px;
+}
+.hotspot-hud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.hotspot-hud-actions button {
+  background: #7851de;
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.hotspot-enter-arcade {
+  background: #dc65b5 !important;
+}
+.hotspot-dist-hint {
+  display: block;
+  font-size: 11px;
+  color: #8464c2;
+}
+.city-event-banner {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+.event-blackout {
+  background: #ffcf5c;
+  color: #2b1d00;
+}
+.event-happy {
+  background: #6cdeb5;
+  color: #0e3326;
+}
+.world-activity-toast {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  background: #251c3b;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.arena-controls {
+  position: absolute;
+  right: 22px;
+  bottom: 24px;
+  display: flex;
+  gap: 10px;
+  z-index: 4;
+}
+.arena-controls .shoot-control {
+  position: static;
+}
+.dash-control {
+  border-radius: 12px;
+  background: #5dd3ba;
+  padding: 15px 18px;
+  color: #16332c;
+  font-weight: 900;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.castphone-radio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #e6ddff;
+  border-radius: 99px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.castphone-radio-btn.active,
+.stage-back.radio-live {
+  background: #5dd3ba;
+  color: #122c26;
+}
+.quest-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.minimap-radar {
+  position: absolute;
+  top: 66px;
+  left: 18px;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: rgba(25, 20, 44, 0.84);
+  border: 2px solid rgba(173, 146, 255, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 4;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+}
+.minimap-ring {
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+.minimap-cross-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+.minimap-cross-v {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+.minimap-hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(34, 27, 58, 0.92);
+  border: 1.5px solid #a589ff;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+.minimap-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.minimap-me {
+  width: 9px;
+  height: 9px;
+  background: #5dd3ba;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px #5dd3ba;
+  z-index: 3;
+}
+.minimap-other {
+  width: 7px;
+  height: 7px;
+  background: #a589ff;
+  border: 1px solid #fff;
+}
+.minimap-npc {
+  width: 7px;
+  height: 7px;
+  background: #f5b841;
+  border: 1px solid #231b00;
+}
+.minimap-powerup {
+  width: 8px;
+  height: 8px;
+  background: #ff898a;
+  box-shadow: 0 0 8px #ff898a;
+}
+.minimap-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.75);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+}
+.virtual-joystick {
+  position: absolute;
+  left: 20px;
+  bottom: 84px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(28, 22, 48, 0.68);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+.virtual-joystick.is-active {
+  border-color: #5dd3ba;
+  background: rgba(28, 22, 48, 0.85);
+}
+.joystick-knob {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9871f1, #5dd3ba);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+@media (max-width: 850px) {
+  .stats-row-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .world-vitals-bar {
+    display: none;
+  }
+}
+
+

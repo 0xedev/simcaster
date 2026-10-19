@@ -1,0 +1,115 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "Simcaster 3D Pipeline"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "FarcasterCrystalScene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "FarcasterCrystalNode",
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "FarcasterCrystalMesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "FarcasterPurplePBR",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.553,
+          0.392,
+          0.969,
+          1
+        ],
+        "metallicFactor": 0.35,
+        "roughnessFactor": 0.22
+      },
+      "emissiveFactor": [
+        0.32,
+        0.18,
+        0.68
+      ]
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAADMzcz8AAAAAAAAAADMzc78AAAAA4XoUPwAAAAAAAAAA4XoUvwAAAAAAAAAAAAAAAAAAAADhehQ/AAAAAAAAAADhehS/AAAAAAAAgD8AAAAAAAAAAAAAgL8AAAAAAACAPwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AAAEAAIAAAACAAUAAAAFAAMAAAADAAQAAQACAAQAAQAFAAIAAQADAAUAAQAEAAMA",
+      "byteLength": 192
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 72,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 72,
+      "byteLength": 72,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 144,
+      "byteLength": 48,
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC3",
+      "min": [
+        -0.58,
+        -0.95,
+        -0.58
+      ],
+      "max": [
+        0.58,
+        0.95,
+        0.58
+      ]
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5123,
+      "count": 24,
+      "type": "SCALAR"
+    }
+  ]
+}

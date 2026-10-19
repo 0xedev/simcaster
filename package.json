@@ -17,6 +17,7 @@
   "dependencies": {
     "@farcaster/auth-client": "^0.7.1",
     "@farcaster/auth-kit": "^0.8.2",
+    "@farcaster/core": "^0.20.0",
     "@react-three/fiber": "^9.1.2",
     "express": "^4.21.2",
     "lucide-react": "^0.468.0",
