@@ -92,6 +92,17 @@ function Login({config,onSignedIn,onToast}){
   const authError=useCallback(error=>{
     handlers.current.onToast(error?.message || 'Farcaster sign-in failed. Please try again.');
   },[]);
+  async function guestLogin(){
+    try{
+      setBusy(true);
+      const result=await api('/auth/guest',{method:'POST',body:JSON.stringify({name:name.trim()||''})});
+      onSignedIn(result.user);
+    }catch(e){
+      onToast(e.message);
+    }finally{
+      setBusy(false);
+    }
+  }
   async function demo(e){
     e.preventDefault();try{setBusy(true);const result=await api('/auth/demo',{method:'POST',body:JSON.stringify({name})});onSignedIn(result.user);}
     catch(e){onToast(e.message);}finally{setBusy(false);}
@@ -109,14 +120,15 @@ function Login({config,onSignedIn,onToast}){
         <p>Meet the humans behind the handles. Explore a world with friends, make your own little corner, and jump into games together — all powered by Farcaster.</p>
         <div className="welcome-benefits"><span><Check size={16}/> Real social identities</span><span><Check size={16}/> Shared 3D spaces</span><span><Check size={16}/> Games with friends</span></div>
         <div className="login-card">
-          <strong>Your next adventure starts here.</strong><p>Connect your Farcaster account to join the world.</p>
-          {challenge?<SignInButton key={challenge.nonce} nonce={challenge.nonce} onSuccess={success} onError={authError}/>:<button disabled className="primary-btn">Preparing secure sign in…</button>}
-          {busy&&<small>Verifying your sign-in securely…</small>}
-          {config.demoMode&&<form onSubmit={demo} className="demo-login">
-            <span>OR EXPLORE A PRIVATE DEMO</span>
-            <div><input aria-label="Demo display name" placeholder="Your display name" value={name} onChange={e=>setName(e.target.value)} maxLength={32} required minLength={2}/><button disabled={busy} type="submit">Try demo <ArrowRight size={16}/></button></div>
-            <small>Demo users are not Farcaster identities. This mode is for development only.</small>
-          </form>}
+          <strong>Your next adventure starts here.</strong>
+          <p>Connect with your Farcaster account or jump right in as a guest.</p>
+          <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginTop:8}}>
+            {challenge?<SignInButton key={challenge.nonce} nonce={challenge.nonce} onSuccess={success} onError={authError}/>:<button disabled className="primary-btn">Preparing sign in…</button>}
+            <button type="button" className="secondary-btn" disabled={busy} onClick={guestLogin} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 14px',fontSize:13,fontWeight:600}}>
+              <span>🎮</span> Explore as Guest
+            </button>
+          </div>
+          {busy&&<small style={{marginTop:8,display:'block'}}>Entering Simcaster…</small>}
         </div>
       </div>
       <div className="welcome-art" aria-label="Illustration of a playful social world">
@@ -292,7 +304,7 @@ function SocialFeed({user,notify}) {
           <p style={{margin:'2px 0 0'}}>{quoteTarget.text}</p>
         </div>}
         <textarea id="feed-compose" value={composeText} maxLength={320} onChange={e=>setComposeText(e.target.value)} placeholder={replyTarget?'Write your reply…':quoteTarget?'Add your thoughts to this quote cast…':'What’s happening in your world?'} rows={2}/>
-        <div className="composer-actions"><span>{composeText.length}/320 · {hubSynced ? 'In-app + Farcaster Hub synced' : 'In-app writes active (+2 Clout)'}</span>
+        <div className="composer-actions"><span>{composeText.length}/320 · In-app writes active (+2 Clout)</span>
           <button className="primary-btn" type="submit" disabled={busy||!composeText.trim()}>{busy?'Publishing…':replyTarget?'Reply':quoteTarget?'Quote cast':'Post cast'}</button>
         </div>
       </form>

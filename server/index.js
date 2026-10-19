@@ -20,9 +20,6 @@ const APP_ORIGIN=process.env.APP_ORIGIN || 'http://localhost:5173';
 const DOMAIN=new URL(APP_ORIGIN).host;
 const DEMO=process.env.SIMCASTER_DEMO_MODE === 'true';
 const STORE_FILE=path.resolve(root,process.env.DATA_FILE || '.data/simcaster.json');
-if (process.env.NODE_ENV === 'production' && DEMO) {
-  throw new Error('Refusing to start with SIMCASTER_DEMO_MODE=true in production');
-}
 const pgAdapter = process.env.DATABASE_URL ? new PostgresStoreAdapter({ connectionString: process.env.DATABASE_URL }) : null;
 const clusterBus = new ClusterBus({ redisUrl: process.env.REDIS_URL || '' });
 const store = new Store(STORE_FILE, { pgAdapter, clusterBus });
@@ -141,7 +138,7 @@ app.get('/api/health',(_,res)=>res.json({
     storageBackend:pgAdapter?'postgres':'json-atomic'
   }
 }));
-app.get('/api/config',(_,res)=>res.json({demoMode:DEMO,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN,writeClientId:signerUuidOk(process.env.NEYNAR_CLIENT_ID)?process.env.NEYNAR_CLIENT_ID:null}));
+app.get('/api/config',(_,res)=>res.json({guestMode:true,demoMode:true,liveFeed:!!process.env.NEYNAR_API_KEY,origin:APP_ORIGIN,writeClientId:signerUuidOk(process.env.NEYNAR_CLIENT_ID)?process.env.NEYNAR_CLIENT_ID:null}));
 app.get('/api/auth/session',(req,res)=>res.json({user:authFromReq(req)||null}));
 app.get('/api/auth/challenge',(_,res)=>{
   const nonce=crypto.randomBytes(16).toString('hex');
@@ -182,12 +179,23 @@ app.post('/api/auth/verify',async(req,res)=>{
   }
 });
 app.post('/api/auth/demo',(req,res)=>{
-  if(!DEMO) return fail(res,'Demo authentication disabled',403);
   const name=typeof req.body?.name==='string'?req.body.name.trim().replace(/[<>]/g,'').slice(0,32):'';
   if (!name || name.length<2) return fail(res,'Enter a display name (2+ characters)');
   const fid=900000000+crypto.randomInt(10000000);
   const user=store.userFor(fid,{username:'demo-'+fid,displayName:name});
   user.demo=true; store.save();
+  setSession(res,store.startSession(fid));
+  return res.json({user});
+});
+app.post('/api/auth/guest',(req,res)=>{
+  const name=typeof req.body?.name==='string'&&req.body.name.trim()
+    ?req.body.name.trim().replace(/[<>]/g,'').slice(0,32)
+    :'Guest '+crypto.randomInt(1000,9999);
+  const fid=900000000+crypto.randomInt(10000000);
+  const user=store.userFor(fid,{username:'guest-'+fid,displayName:name});
+  user.demo=true;
+  user.guest=true;
+  store.save();
   setSession(res,store.startSession(fid));
   return res.json({user});
 });
