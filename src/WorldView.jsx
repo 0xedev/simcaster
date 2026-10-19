@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { soundEngine } from './sound.js';
 import { loadGltfModel } from './skeletal.js';
-import { DISTRICTS, getPlazaDistrict } from '../server/rules.js';
+import { DISTRICTS, getPlazaDistrict, movement, collidesWithPlaza, collidesWithArena } from '../server/rules.js';
 
 const HEX = { violet: '#8d64f7', citrus: '#eec35b', coral: '#ff898a', mint: '#5dd3ba', sky: '#73bff2' };
 
@@ -152,20 +152,74 @@ const TREES = [
   [0, -17]
 ];
 
+const STREET_LAMPS = [
+  [-4.4, -5.8],
+  [4.4, -5.8],
+  [-4.4, 5.8],
+  [4.4, 5.8],
+  [-10.2, -4.3],
+  [10.2, -4.3],
+  [-10.2, 4.3],
+  [10.2, 4.3]
+];
+
 function Tree({ x, z }) {
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, 0.9, 0]} castShadow>
-        <cylinderGeometry args={[0.19, 0.26, 1.8, 7]} />
-        <meshStandardMaterial color="#97734f" />
+      {/* Stone planter ring */}
+      <mesh position={[0, 0.12, 0]} receiveShadow>
+        <cylinderGeometry args={[0.62, 0.68, 0.24, 14]} />
+        <meshStandardMaterial color="#e5dcf2" roughness={0.8} />
       </mesh>
-      <mesh position={[0, 2.25, 0]} castShadow>
-        <coneGeometry args={[1.35, 3.1, 8]} />
-        <meshStandardMaterial color="#4a9c81" roughness={1} />
+      <mesh position={[0, 0.22, 0]}>
+        <cylinderGeometry args={[0.52, 0.52, 0.06, 12]} />
+        <meshStandardMaterial color="#5c4738" roughness={0.95} />
       </mesh>
-      <mesh position={[0, 3.2, 0]} castShadow>
-        <coneGeometry args={[0.9, 2.2, 8]} />
-        <meshStandardMaterial color="#6cba97" roughness={1} />
+      {/* Trunk */}
+      <mesh position={[0, 1.05, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.24, 1.8, 9]} />
+        <meshStandardMaterial color="#7d5a44" roughness={0.88} />
+      </mesh>
+      {/* Multi-layered canopy */}
+      <mesh position={[0, 2.25, 0]} castShadow receiveShadow>
+        <dodecahedronGeometry args={[1.25, 1]} />
+        <meshStandardMaterial color="#3b8f6e" roughness={0.78} />
+      </mesh>
+      <mesh position={[0.28, 3.05, 0.18]} castShadow>
+        <dodecahedronGeometry args={[0.92, 1]} />
+        <meshStandardMaterial color="#58b88e" roughness={0.75} />
+      </mesh>
+      <mesh position={[-0.24, 2.85, -0.22]} castShadow>
+        <dodecahedronGeometry args={[0.78, 1]} />
+        <meshStandardMaterial color="#4ca680" roughness={0.76} />
+      </mesh>
+    </group>
+  );
+}
+
+function StreetLamp({ x, z, night, blackout }) {
+  const lit = !blackout;
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, 0.15, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.22, 0.3, 10]} />
+        <meshStandardMaterial color="#2b2440" metalness={0.5} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 1.65, 0]} castShadow>
+        <cylinderGeometry args={[0.055, 0.075, 2.8, 10]} />
+        <meshStandardMaterial color="#393052" metalness={0.6} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 3.1, 0]}>
+        <cylinderGeometry args={[0.26, 0.16, 0.36, 12]} />
+        <meshStandardMaterial
+          color={lit ? '#fff3c4' : '#3a344c'}
+          emissive={lit ? '#fbbf24' : '#000000'}
+          emissiveIntensity={night && lit ? 0.95 : lit ? 0.45 : 0}
+        />
+      </mesh>
+      <mesh position={[0, 3.32, 0]}>
+        <coneGeometry args={[0.34, 0.18, 12]} />
+        <meshStandardMaterial color="#2b2440" metalness={0.5} roughness={0.4} />
       </mesh>
     </group>
   );
@@ -173,46 +227,118 @@ function Tree({ x, z }) {
 
 function Building({ item, index, night, blackout }) {
   const [x, z, w, h, d, col] = item;
-  const winGlow = blackout ? '#2d293e' : night ? '#ffe39f' : '#d4f2ff';
-  const winEmissive = blackout ? '#000000' : night ? '#ffbe55' : '#000000';
+  // Orient facade toward the central avenues so southern/eastern/western buildings don't face backward
+  const rotY = z > 5 ? Math.PI : z < -5 ? 0 : x > 0 ? -Math.PI / 2 : Math.PI / 2;
+  const districtAccent =
+    x > 0 && z < 0 ? '#38bdf8' : x < 0 && z > 0 ? '#f43f5e' : x > 0 && z > 0 ? '#3b82f6' : '#a855f7';
+  const winGlow = blackout ? '#262235' : night ? '#fde68a' : '#e0f2fe';
+  const winEmissive = blackout ? '#000000' : night ? '#f59e0b' : '#38bdf8';
+  const floors = Math.max(2, Math.floor((h - 1.6) / 1.45));
+  const cols = Math.max(2, Math.min(4, Math.floor((w - 1.2) / 1.35)));
+
   return (
-    <group position={[x, 0, z]}>
-      <mesh castShadow receiveShadow position={[0, h / 2, 0]}>
+    <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
+      {/* Sidewalk foundation pad */}
+      <mesh receiveShadow position={[0, 0.12, 0]}>
+        <boxGeometry args={[w + 1.2, 0.24, d + 1.2]} />
+        <meshStandardMaterial color="#e2daf0" roughness={0.85} />
+      </mesh>
+
+      {/* Main architectural tower body */}
+      <mesh castShadow receiveShadow position={[0, h / 2 + 0.12, 0]}>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={col} roughness={0.83} />
+        <meshStandardMaterial color={col} roughness={0.68} />
       </mesh>
-      <mesh castShadow position={[0, h + 0.15, 0]}>
-        <boxGeometry args={[w + 0.35, 0.35, d + 0.35]} />
-        <meshStandardMaterial color="#f5e8d8" />
+
+      {/* Darker ground-floor podium base */}
+      <mesh castShadow receiveShadow position={[0, 0.95, 0]}>
+        <boxGeometry args={[w + 0.08, 1.65, d + 0.08]} />
+        <meshStandardMaterial color="#2d2644" roughness={0.6} />
       </mesh>
-      <mesh position={[0, 1.16, d / 2 + 0.017]}>
-        <boxGeometry args={[1.25, 2.3, 0.04]} />
-        <meshStandardMaterial color="#463d66" />
+
+      {/* Mid-level architectural cornice trim */}
+      <mesh position={[0, 1.82, 0]}>
+        <boxGeometry args={[w + 0.24, 0.14, d + 0.24]} />
+        <meshStandardMaterial color="#f5effc" roughness={0.5} />
       </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * w * 0.29, h * 0.65, d / 2 + 0.03]}>
-          <boxGeometry args={[0.83, 0.96, 0.04]} />
-          <meshStandardMaterial
-            color={winGlow}
-            emissive={winEmissive}
-            emissiveIntensity={night && !blackout ? 0.45 : 0}
-            metalness={0.1}
-            roughness={0.25}
-          />
-        </mesh>
-      ))}
-      <mesh position={[0, h * 0.3, d / 2 + 0.05]}>
-        <boxGeometry args={[Math.min(2.3, w * 0.7), 0.36, 0.13]} />
+
+      {/* Roof cornice & parapet */}
+      <mesh castShadow position={[0, h + 0.2, 0]}>
+        <boxGeometry args={[w + 0.34, 0.28, d + 0.34]} />
+        <meshStandardMaterial color="#f5effc" roughness={0.55} />
+      </mesh>
+      <mesh castShadow position={[0, h + 0.44, 0]}>
+        <boxGeometry args={[w - 0.5, 0.25, d - 0.5]} />
+        <meshStandardMaterial color="#352d50" roughness={0.7} />
+      </mesh>
+
+      {/* Rooftop AC / Mechanical Pent-unit */}
+      <mesh castShadow position={[w * 0.22, h + 0.78, -d * 0.18]}>
+        <boxGeometry args={[1.1, 0.55, 0.95]} />
+        <meshStandardMaterial color="#cbd5e1" metalness={0.3} roughness={0.5} />
+      </mesh>
+
+      {/* Rooftop glowing channel neon bar */}
+      <mesh position={[0, h + 0.42, d / 2 + 0.12]}>
+        <boxGeometry args={[w * 0.72, 0.22, 0.1]} />
         <meshStandardMaterial
-          color={index % 2 ? '#ffd28c' : '#8c6be8'}
-          emissive={blackout ? '#000000' : index % 2 ? '#ffd28c' : '#8c6be8'}
-          emissiveIntensity={blackout ? 0 : 0.35}
+          color={districtAccent}
+          emissive={blackout ? '#000000' : districtAccent}
+          emissiveIntensity={blackout ? 0 : 0.75}
         />
       </mesh>
-      <mesh receiveShadow position={[0, 0.16, 0]}>
-        <boxGeometry args={[w + 1.5, 0.3, d + 1.5]} />
-        <meshStandardMaterial color="#ddd3ed" />
+
+      {/* Ground-floor storefront doorway & glass */}
+      <mesh position={[0, 0.92, d / 2 + 0.06]}>
+        <boxGeometry args={[1.35, 1.5, 0.06]} />
+        <meshStandardMaterial color="#1a152b" roughness={0.3} />
       </mesh>
+      <mesh position={[0, 0.92, d / 2 + 0.08]}>
+        <boxGeometry args={[1.12, 1.36, 0.04]} />
+        <meshStandardMaterial
+          color={blackout ? '#1e1b2e' : '#fef3c7'}
+          emissive={blackout ? '#000000' : '#fbbf24'}
+          emissiveIntensity={blackout ? 0 : 0.35}
+          roughness={0.2}
+        />
+      </mesh>
+
+      {/* Storefront awning */}
+      <mesh castShadow position={[0, 1.72, d / 2 + 0.38]} rotation={[0.28, 0, 0]}>
+        <boxGeometry args={[Math.min(w * 0.78, 3.6), 0.1, 0.68]} />
+        <meshStandardMaterial color={districtAccent} roughness={0.55} />
+      </mesh>
+
+      {/* Multi-story window grid on front & back facades */}
+      {Array.from({ length: floors }, (_, fy) => {
+        const wy = 2.45 + fy * 1.38;
+        if (wy > h - 0.45) return null;
+        return Array.from({ length: cols }, (__, cx) => {
+          const spread = w * 0.68;
+          const wx = cols === 1 ? 0 : -spread / 2 + (cx / (cols - 1)) * spread;
+          const litWin = !blackout && ((index + fy + cx) % 3 !== 0 || !night);
+          return (
+            <group key={`${fy}-${cx}`}>
+              {/* Front window */}
+              <mesh position={[wx, wy, d / 2 + 0.03]}>
+                <boxGeometry args={[0.78, 0.88, 0.05]} />
+                <meshStandardMaterial
+                  color={litWin ? winGlow : '#332c4c'}
+                  emissive={litWin ? winEmissive : '#000000'}
+                  emissiveIntensity={litWin ? (night ? 0.55 : 0.15) : 0}
+                  metalness={0.25}
+                  roughness={0.2}
+                />
+              </mesh>
+              {/* Window sill */}
+              <mesh position={[wx, wy - 0.46, d / 2 + 0.06]}>
+                <boxGeometry args={[0.88, 0.07, 0.1]} />
+                <meshStandardMaterial color="#f5effc" />
+              </mesh>
+            </group>
+          );
+        });
+      })}
     </group>
   );
 }
@@ -222,20 +348,20 @@ function HotspotMarker({ spot, active, onSelect }) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 420;
-    canvas.height = 110;
+    canvas.height = 104;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = active ? 'rgba(120, 81, 222, 0.96)' : 'rgba(26, 20, 46, 0.88)';
+    ctx.fillStyle = active ? 'rgba(109, 64, 218, 0.96)' : 'rgba(22, 17, 39, 0.92)';
     ctx.beginPath();
-    ctx.roundRect(10, 10, 400, 90, 24);
+    ctx.roundRect(10, 10, 400, 84, 42);
     ctx.fill();
-    ctx.strokeStyle = spot.color || '#a589ff';
+    ctx.strokeStyle = active ? '#6cdeb5' : spot.color || '#a589ff';
     ctx.lineWidth = 4;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px sans-serif';
+    ctx.font = 'bold 26px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${spot.icon} ${spot.name}`, 210, 55, 376);
+    ctx.fillText(`${spot.icon} ${spot.name}`, 210, 52, 372);
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
     return result;
@@ -245,7 +371,7 @@ function HotspotMarker({ spot, active, onSelect }) {
 
   useFrame(({ clock }) => {
     if (ringRef.current) {
-      const s = 1 + Math.sin(clock.elapsedTime * 3.5) * 0.08;
+      const s = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.06;
       ringRef.current.scale.set(s, s, 1);
     }
   });
@@ -259,11 +385,15 @@ function HotspotMarker({ spot, active, onSelect }) {
       }}
     >
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.15, 1.5, 32]} />
+        <ringGeometry args={[0.95, 1.22, 32]} />
         <meshBasicMaterial color={active ? '#6cdeb5' : spot.color || '#a589ff'} side={THREE.DoubleSide} />
       </mesh>
-      <sprite position={[0, 3.3, 0]} scale={[3.4, 0.88, 1]}>
-        <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+        <circleGeometry args={[0.95, 28]} />
+        <meshBasicMaterial color={spot.color || '#a589ff'} transparent opacity={0.16} />
+      </mesh>
+      <sprite position={[0, active ? 2.85 : 2.55, 0]} scale={active ? [2.85, 0.72, 1] : [2.35, 0.58, 1]}>
+        <spriteMaterial map={texture} transparent depthTest={true} depthWrite={false} />
       </sprite>
     </group>
   );
@@ -377,7 +507,7 @@ function FarcasterGltfBeacon({ blackout }) {
 const DISTRICT_AMBIENT_CASTS = {
   farcaster: {
     author: { display_name: 'Maya Chen', username: 'maya.world' },
-    text: 'Welcome to Simcaster Metropolis Plaza! Central fountain relay is synced. ✦'
+    text: 'Welcome to Simcaster Channels! Central /farcaster relay is synced. ✦'
   },
   dev: {
     author: { display_name: 'Alex Rivera', username: 'alexr.eth' },
@@ -536,41 +666,97 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, time
   const blackout = cityEvent === 'blackout';
   return (
     <group>
+      {/* Outer emerald parkland ground */}
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[45, 45]} />
-        <meshStandardMaterial color={night ? '#597468' : '#a9ccb1'} />
+        <planeGeometry args={[56, 56]} />
+        <meshStandardMaterial color={night ? '#2c4239' : '#6ea88b'} roughness={0.92} />
+      </mesh>
+
+      {/* 4 Channel District Courtyards */}
+      {/* NW: /farcaster Café & Park Courtyard */}
+      <mesh receiveShadow position={[-10.5, 0.012, -10.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[13, 13]} />
+        <meshStandardMaterial color={night ? '#3d3356' : '#dcd2f0'} roughness={0.85} />
+      </mesh>
+      {/* NE: /dev Builders Foundry Tech Plaza */}
+      <mesh receiveShadow position={[10.5, 0.012, -10.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[13, 13]} />
+        <meshStandardMaterial color={night ? '#1e293b' : '#cbd5e1'} roughness={0.75} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[10.5, 0.02, -10.5]}>
+        <ringGeometry args={[5.8, 6.05, 4]} />
+        <meshBasicMaterial color="#38bdf8" />
+      </mesh>
+      {/* SW: /memes Arcade Lounge Neon Court */}
+      <mesh receiveShadow position={[-10.5, 0.012, 10.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[13, 13]} />
+        <meshStandardMaterial color={night ? '#3b1d3e' : '#f3d4e6'} roughness={0.8} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-10.5, 0.02, 10.5]}>
+        <ringGeometry args={[5.8, 6.05, 4]} />
+        <meshBasicMaterial color="#f43f5e" />
+      </mesh>
+      {/* SE: /base Onchain Market Square */}
+      <mesh receiveShadow position={[10.5, 0.012, 10.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[13, 13]} />
+        <meshStandardMaterial color={night ? '#1e2f56' : '#cfe0fc'} roughness={0.8} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[10.5, 0.02, 10.5]}>
+        <ringGeometry args={[5.8, 6.05, 4]} />
+        <meshBasicMaterial color="#3b82f6" />
+      </mesh>
+
+      {/* Main N-S and E-W Paved Boulevards & Sidewalk Curbs */}
+      <mesh receiveShadow position={[0, 0.02, 0]}>
+        <boxGeometry args={[8.2, 0.04, 48]} />
+        <meshStandardMaterial color={night ? '#2c263f' : '#e9e1f4'} roughness={0.82} />
       </mesh>
       <mesh receiveShadow position={[0, 0.025, 0]}>
-        <boxGeometry args={[8, 0.05, 46]} />
-        <meshStandardMaterial color="#e3d4c6" />
+        <boxGeometry args={[48, 0.05, 8.2]} />
+        <meshStandardMaterial color={night ? '#2c263f' : '#e9e1f4'} roughness={0.82} />
       </mesh>
-      <mesh receiveShadow position={[0, 0.03, 0]}>
-        <boxGeometry args={[46, 0.06, 8]} />
-        <meshStandardMaterial color="#e3d4c6" />
+
+      {/* Autonomous Transit Loop Track */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.032, 0]}>
+        <ringGeometry args={[7.15, 7.65, 64]} />
+        <meshStandardMaterial color={night ? '#231d36' : '#cfc3e6'} roughness={0.7} />
       </mesh>
-      <mesh receiveShadow position={[0, 0.08, 0]}>
-        <cylinderGeometry args={[5.4, 5.4, 0.1, 32]} />
-        <meshStandardMaterial color="#f2e5d7" />
+
+      {/* Central /farcaster Hub Plaza & Fountain */}
+      <mesh receiveShadow position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[5.5, 5.7, 0.12, 48]} />
+        <meshStandardMaterial color={night ? '#352b52' : '#f4effc'} roughness={0.72} />
       </mesh>
-      <mesh receiveShadow position={[0, 0.17, 0]}>
-        <cylinderGeometry args={[2.1, 2.3, 0.28, 32]} />
-        <meshStandardMaterial color="#9b90d7" />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.125, 0]}>
+        <ringGeometry args={[4.85, 5.1, 48]} />
+        <meshBasicMaterial color="#8a63d2" />
       </mesh>
-      <mesh position={[0, 0.36, 0]}>
-        <cylinderGeometry args={[1.76, 1.76, 0.16, 32]} />
-        <meshStandardMaterial color="#8bd4e5" metalness={0.25} roughness={0.25} />
+      <mesh receiveShadow castShadow position={[0, 0.22, 0]}>
+        <cylinderGeometry args={[2.15, 2.38, 0.34, 36]} />
+        <meshStandardMaterial color="#6e56af" roughness={0.55} />
       </mesh>
-      <mesh position={[0, 1.2, 0]} castShadow>
-        <cylinderGeometry args={[0.17, 0.31, 1.7, 16]} />
-        <meshStandardMaterial color="#ece2f9" />
-      </mesh>
-      <mesh position={[0, 2.07, 0]} castShadow>
-        <icosahedronGeometry args={[0.55, 1]} />
+      <mesh position={[0, 0.4, 0]}>
+        <cylinderGeometry args={[1.86, 1.86, 0.12, 36]} />
         <meshStandardMaterial
-          color="#d6a4f1"
-          emissive={blackout ? '#ff4444' : '#9c62ff'}
-          emissiveIntensity={blackout ? 0.6 : 0.25}
-          metalness={0.25}
+          color="#5eead4"
+          emissive={blackout ? '#000000' : '#2dd4bf'}
+          emissiveIntensity={blackout ? 0 : 0.25}
+          metalness={0.35}
+          roughness={0.15}
+        />
+      </mesh>
+      <mesh position={[0, 1.22, 0]} castShadow>
+        <cylinderGeometry args={[0.18, 0.34, 1.75, 20]} />
+        <meshStandardMaterial color="#f5effc" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 2.12, 0]} castShadow>
+        <icosahedronGeometry args={[0.56, 1]} />
+        <meshStandardMaterial
+          color="#c084fc"
+          emissive={blackout ? '#ff4444' : '#8a63d2'}
+          emissiveIntensity={blackout ? 0.6 : 0.55}
+          metalness={0.35}
+          roughness={0.2}
         />
       </mesh>
       <FarcasterGltfBeacon blackout={blackout} />
@@ -594,6 +780,9 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, time
       {BUILDINGS.map((item, i) => (
         <Building key={i} item={item} index={i} night={night} blackout={blackout} />
       ))}
+      {STREET_LAMPS.map(([lx, lz], i) => (
+        <StreetLamp key={i} x={lx} z={lz} night={night} blackout={blackout} />
+      ))}
       {TREES.map(([x, z], i) => (
         <Tree key={i} x={x} z={z} />
       ))}
@@ -607,17 +796,21 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, time
       ))}
       {[-1, 1].map((s) => (
         <group key={s} position={[s * 8.5, 0, 0]}>
-          <mesh castShadow position={[0, 0.53, 0]}>
-            <boxGeometry args={[1.4, 0.15, 0.55]} />
-            <meshStandardMaterial color="#aa78c5" />
+          <mesh castShadow position={[0, 0.5, 0]}>
+            <boxGeometry args={[1.5, 0.14, 0.58]} />
+            <meshStandardMaterial color="#7e5bc2" roughness={0.6} />
           </mesh>
-          <mesh position={[-0.56, 0.25, 0]}>
-            <boxGeometry args={[0.14, 0.5, 0.55]} />
-            <meshStandardMaterial color="#f0e0c7" />
+          <mesh castShadow position={[0, 0.82, -0.24]}>
+            <boxGeometry args={[1.5, 0.42, 0.1]} />
+            <meshStandardMaterial color="#6a48ad" roughness={0.6} />
           </mesh>
-          <mesh position={[0.56, 0.25, 0]}>
+          <mesh position={[-0.58, 0.25, 0]}>
             <boxGeometry args={[0.14, 0.5, 0.55]} />
-            <meshStandardMaterial color="#f0e0c7" />
+            <meshStandardMaterial color="#352c4d" />
+          </mesh>
+          <mesh position={[0.58, 0.25, 0]}>
+            <boxGeometry args={[0.14, 0.5, 0.55]} />
+            <meshStandardMaterial color="#352c4d" />
           </mesh>
         </group>
       ))}
@@ -874,36 +1067,39 @@ function Home({ items = [], tier = 'studio', onUseFurniture }) {
 function AvatarName({ name, you, bubble, career, powerBadge }) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 440;
-    canvas.height = bubble ? 165 : 96;
+    canvas.width = 420;
+    canvas.height = bubble ? 156 : 88;
     const ctx = canvas.getContext('2d');
 
     if (bubble) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
       ctx.beginPath();
-      ctx.roundRect(14, 6, 412, 68, 20);
+      ctx.roundRect(14, 6, 392, 62, 18);
       ctx.fill();
       ctx.strokeStyle = '#8d64f7';
       ctx.lineWidth = 3;
       ctx.stroke();
       ctx.fillStyle = '#251c3b';
-      ctx.font = 'bold 24px sans-serif';
+      ctx.font = 'bold 22px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(bubble.slice(0, 32), 220, 40, 390);
+      ctx.fillText(bubble.slice(0, 32), 210, 37, 368);
     }
 
-    const yOffset = bubble ? 82 : 10;
-    ctx.fillStyle = you ? 'rgba(88, 55, 145, 0.95)' : 'rgba(34, 26, 55, 0.88)';
+    const yOffset = bubble ? 78 : 10;
+    ctx.fillStyle = you ? 'rgba(96, 56, 178, 0.96)' : 'rgba(24, 18, 42, 0.92)';
     ctx.beginPath();
-    ctx.roundRect(26, yOffset, 388, 74, 22);
+    ctx.roundRect(28, yOffset, 364, 68, 34);
     ctx.fill();
+    ctx.strokeStyle = powerBadge ? '#c084fc' : you ? '#6cdeb5' : 'rgba(165, 137, 255, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = 'bold 26px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const badge = powerBadge ? '🟣 ' : career === 'mogul' ? '👑 ' : you ? '★ ' : '';
-    ctx.fillText(badge + name.slice(0, 18), 220, yOffset + 37, 360);
+    const badge = powerBadge ? '🟣 ' : career === 'mogul' ? '👑 ' : you ? '✦ ' : '';
+    ctx.fillText(badge + name.slice(0, 18), 210, yOffset + 34, 336);
 
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
@@ -913,8 +1109,8 @@ function AvatarName({ name, you, bubble, career, powerBadge }) {
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
-    <sprite position={[0, bubble ? 2.85 : 2.5, 0]} scale={[2.8, bubble ? 1.05 : 0.62, 1]}>
-      <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} />
+    <sprite position={[0, bubble ? 2.74 : 2.38, 0]} scale={[2.1, bubble ? 0.78 : 0.45, 1]}>
+      <spriteMaterial map={texture} transparent depthTest={true} depthWrite={false} />
     </sprite>
   );
 }
@@ -926,12 +1122,13 @@ function Avatar({ p, you, emote, onSelect }) {
 
   useFrame((_, dt) => {
     if (!groupRef.current) return;
-    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, p.x, Math.min(1, dt * 12));
-    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, p.z, Math.min(1, dt * 12));
+    const lerpRate = you ? Math.min(1, dt * 20) : Math.min(1, dt * 14);
+    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, p.x, lerpRate);
+    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, p.z, lerpRate);
     groupRef.current.rotation.y = p.heading || 0;
     const speed = Math.hypot(p.x - lastPos.current.x, p.z - lastPos.current.z);
     lastPos.current = { x: p.x, z: p.z };
-    const isNowMoving = speed > 0.005 || Math.hypot(groupRef.current.position.x - p.x, groupRef.current.position.z - p.z) > 0.08;
+    const isNowMoving = speed > 0.004 || Math.hypot(groupRef.current.position.x - p.x, groupRef.current.position.z - p.z) > 0.06;
     if (isNowMoving !== moving) setMoving(isNowMoving);
   });
 
@@ -945,6 +1142,13 @@ function Avatar({ p, you, emote, onSelect }) {
         if (!you) onSelect(p);
       }}
     >
+      {/* Ground selection / identity ring */}
+      {(you || p.powerBadge) && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+          <ringGeometry args={[0.5, 0.62, 32]} />
+          <meshBasicMaterial color={you ? '#5dd3ba' : '#a855f7'} side={THREE.DoubleSide} />
+        </mesh>
+      )}
       <AvatarName name={p.name || 'Player'} you={you} bubble={p.bubble} career={p.career} powerBadge={!!p.powerBadge} />
       <AvatarFigure
         avatar={p.avatar}
@@ -954,26 +1158,20 @@ function Avatar({ p, you, emote, onSelect }) {
         dashing={!!p.dashing}
       />
       {p.powerBadge && (
-        <group position={[0, 2.18, 0]}>
+        <group position={[0, 2.08, 0]} scale={0.72}>
           <mesh rotation={[-Math.PI / 6, 0, 0]}>
             <torusGeometry args={[0.26, 0.04, 12, 32]} />
             <meshStandardMaterial color="#8a63d2" emissive="#8a63d2" emissiveIntensity={0.85} roughness={0.2} metalness={0.7} />
           </mesh>
-          <mesh position={[0, 0.16, 0]}>
+          <mesh position={[0, 0.14, 0]}>
             <octahedronGeometry args={[0.09, 0]} />
             <meshStandardMaterial color="#c084fc" emissive="#c084fc" emissiveIntensity={0.9} />
           </mesh>
         </group>
       )}
-      {you && (
-        <mesh position={[0, 2.3, 0]}>
-          <octahedronGeometry args={[0.2]} />
-          <meshStandardMaterial color="#f9d875" emissive="#f9d875" emissiveIntensity={0.5} />
-        </mesh>
-      )}
       {emote === 'heart' && (
-        <mesh position={[0, 2.3, 0]}>
-          <sphereGeometry args={[0.2, 10, 10]} />
+        <mesh position={[0, 2.15, 0]}>
+          <sphereGeometry args={[0.16, 12, 12]} />
           <meshStandardMaterial color="#ff77ac" emissive="#ff77ac" emissiveIntensity={0.6} />
         </mesh>
       )}
@@ -983,7 +1181,7 @@ function Avatar({ p, you, emote, onSelect }) {
 
 function CameraRig({ players, selfId, mode = 'orbit' }) {
   const canvas = useThree((s) => s.gl.domElement);
-  const orbit = useRef({ theta: 0.73, phi: 0.69, distance: 26, dragging: false, x: 0, y: 0, pointerId: null });
+  const orbit = useRef({ theta: 0.72, phi: 0.56, distance: 19.5, dragging: false, x: 0, y: 0, pointerId: null });
   const goal = useMemo(() => new THREE.Vector3(), []);
   const lookAt = useMemo(() => new THREE.Vector3(), []);
 
@@ -1014,7 +1212,7 @@ function CameraRig({ players, selfId, mode = 'orbit' }) {
     };
     const onWheel = (e) => {
       e.preventDefault();
-      state.distance = THREE.MathUtils.clamp(state.distance + Math.sign(e.deltaY) * 2.1, 8, 44);
+      state.distance = THREE.MathUtils.clamp(state.distance + Math.sign(e.deltaY) * 1.8, 7, 38);
     };
     const onContext = (e) => e.preventDefault();
     canvas.addEventListener('pointerdown', onDown);
@@ -1043,26 +1241,26 @@ function CameraRig({ players, selfId, mode = 'orbit' }) {
     if (mode === 'eyes') {
       goal.set(x + Math.sin(heading) * 0.4, 1.72, z + Math.cos(heading) * 0.4);
       lookAt.set(x + Math.sin(heading) * 8, 1.55, z + Math.cos(heading) * 8);
-      camera.position.lerp(goal, 0.25);
+      camera.position.lerp(goal, 0.28);
       camera.lookAt(lookAt);
     } else if (mode === 'street') {
-      goal.set(x - Math.sin(heading) * 6.5, 3.6, z - Math.cos(heading) * 6.5);
+      goal.set(x - Math.sin(heading) * 6.2, 3.3, z - Math.cos(heading) * 6.2);
       lookAt.set(x + Math.sin(heading) * 3, 1.4, z + Math.cos(heading) * 3);
-      camera.position.lerp(goal, 0.12);
+      camera.position.lerp(goal, 0.16);
       camera.lookAt(lookAt);
     } else if (mode === 'top') {
-      goal.set(x, 34, z + 4);
+      goal.set(x, 30, z + 3.5);
       lookAt.set(x, 0, z);
-      camera.position.lerp(goal, 0.12);
+      camera.position.lerp(goal, 0.16);
       camera.lookAt(lookAt);
     } else {
       goal.set(
         x + Math.sin(o.theta) * Math.cos(o.phi) * o.distance,
-        1.1 + Math.sin(o.phi) * o.distance,
+        1.2 + Math.sin(o.phi) * o.distance,
         z + Math.cos(o.theta) * Math.cos(o.phi) * o.distance
       );
-      lookAt.set(x, 1, z);
-      camera.position.lerp(goal, 0.09);
+      lookAt.set(x, 1.15, z);
+      camera.position.lerp(goal, 0.16);
       camera.lookAt(lookAt);
     }
   });
@@ -1382,30 +1580,43 @@ function Scene({
   const isSunset = timePhase === 'sunset';
   const bg =
     kind === 'arena'
-      ? '#2b2345'
+      ? '#1d1734'
       : isNight
-        ? '#1f1b38'
+        ? '#151129'
         : isSunset
-          ? '#e8b4b8'
-          : '#b2b9e5';
+          ? '#ebb3a9'
+          : '#c7d2f8';
   const ambient =
-    kind === 'arena' ? 1.7 : cityEvent === 'blackout' ? 0.85 : isNight ? 1.2 : 1.9;
+    kind === 'arena' ? 0.65 : cityEvent === 'blackout' ? 0.35 : isNight ? 0.48 : 0.68;
 
   return (
     <>
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, 24, 66]} />
+      <fog attach="fog" args={[bg, 26, 68]} />
       <ambientLight intensity={ambient} />
+      <hemisphereLight
+        args={[
+          isNight ? '#6348b5' : isSunset ? '#ffd6b0' : '#f3f0ff',
+          isNight ? '#141024' : '#3d5c4e',
+          isNight ? 0.55 : 0.78
+        ]}
+      />
       <directionalLight
-        position={[11, 22, 15]}
-        intensity={isNight ? 1.15 : 2.1}
-        color={isSunset ? '#ffd1a6' : '#ffffff'}
+        position={[14, 24, 16]}
+        intensity={isNight ? 0.92 : 1.55}
+        color={isSunset ? '#ffcaa0' : isNight ? '#c7d2fe' : '#fffdf9'}
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0003}
         shadow-camera-left={-24}
         shadow-camera-right={24}
         shadow-camera-top={24}
         shadow-camera-bottom={-24}
+      />
+      <directionalLight
+        position={[-12, 10, -12]}
+        intensity={isNight ? 0.25 : 0.38}
+        color="#c4b5fd"
       />
       {kind === 'arena' ? (
         <Arena powerup={powerup} beams={beams} />
@@ -1463,6 +1674,7 @@ export default function WorldView({
   useEffect(() => setLiveHomeTier(homeTier), [homeTier]);
 
   const playersRef = useRef([]);
+  const selfIdRef = useRef('');
   const [selfId, setSelfId] = useState('');
   const [room, setRoom] = useState('');
   const [state, setState] = useState('Connecting to world…');
@@ -1667,6 +1879,7 @@ export default function WorldView({
       socket.onclose = (event) => {
         if (!active) return;
         playersRef.current = [];
+        selfIdRef.current = '';
         setPlayers([]);
         setSelfId('');
         ws.current = null;
@@ -1686,6 +1899,7 @@ export default function WorldView({
         }
         const d = packet.data;
         if (packet.event === 'welcome') {
+          selfIdRef.current = d.id;
           setSelfId(d.id);
           setRoom(d.room);
           if (Array.isArray(d.hotspots) && d.hotspots.length) setHotspots(d.hotspots);
@@ -1835,13 +2049,45 @@ export default function WorldView({
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup', onUp);
 
+    let wasMoving = false;
     const interval = setInterval(() => {
       if (ws.current?.readyState !== 1) return;
       const down = keys.current;
-      const dx = Number(down.has('d') || down.has('arrowright')) - Number(down.has('a') || down.has('arrowleft')) + touch.current.dx;
-      const dz = Number(down.has('s') || down.has('arrowdown')) - Number(down.has('w') || down.has('arrowup')) + touch.current.dz;
-      ws.current.send(JSON.stringify({ event: 'move', data: { dx: Math.max(-1, Math.min(1, dx)), dz: Math.max(-1, Math.min(1, dz)) } }));
-    }, 90);
+      const rawDx = Number(down.has('d') || down.has('arrowright')) - Number(down.has('a') || down.has('arrowleft')) + touch.current.dx;
+      const rawDz = Number(down.has('s') || down.has('arrowdown')) - Number(down.has('w') || down.has('arrowup')) + touch.current.dz;
+      const dx = Math.max(-1, Math.min(1, rawDx));
+      const dz = Math.max(-1, Math.min(1, rawDz));
+      const isMoving = Math.hypot(dx, dz) > 0.01;
+
+      if (isMoving || wasMoving) {
+        ws.current.send(JSON.stringify({ event: 'move', data: { dx, dz } }));
+        wasMoving = isMoving;
+      }
+
+      // Immediate client-side movement prediction so walking feels instant
+      if (isMoving && selfIdRef.current) {
+        const step = movement({ dx, dz }, 0.32);
+        if (step.dx || step.dz) {
+          const bound = kind === 'arena' ? 12 : kind === 'home' ? 8.5 : 18.5;
+          setPlayers((prev) =>
+            prev.map((p) => {
+              if (p.id !== selfIdRef.current) return p;
+              const nx = Math.max(-bound, Math.min(bound, p.x + step.dx));
+              const nz = Math.max(-bound, Math.min(bound, p.z + step.dz));
+              const blocked =
+                (kind === 'plaza' && collidesWithPlaza(nx, nz)) ||
+                (kind === 'arena' && collidesWithArena(nx, nz));
+              return {
+                ...p,
+                x: blocked ? p.x : +nx.toFixed(2),
+                z: blocked ? p.z : +nz.toFixed(2),
+                heading: Math.atan2(step.dx, step.dz)
+              };
+            })
+          );
+        }
+      }
+    }, 55);
 
     return () => {
       active = false;
