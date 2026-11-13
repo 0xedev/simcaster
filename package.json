@@ -1,35 +1,47 @@
 {
   "name": "simcaster",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -k \"vite --host 0.0.0.0\" \"node --env-file-if-exists=.env --watch server/index.js\"",
-    "build": "npm run build:app",
-    "start": "node --env-file-if-exists=.env server/index.js",
-    "test": "node --test --test-concurrency=2 tests/*.test.js",
-    "check": "npm test && npm run build",
-    "build:app": "vite build"
+    "dev": "concurrently -k \"vite\" \"wrangler dev --port 8787\"",
+    "build": "vite build",
+    "preview": "vite build && wrangler dev --port 8787",
+    "assets": "node scripts/build-assets.mjs",
+    "db:local": "wrangler d1 migrations apply simcaster --local",
+    "db:remote": "wrangler d1 migrations apply simcaster --remote",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@farcaster/auth-client": "^0.7.1",
-    "@farcaster/auth-kit": "^0.8.2",
-    "@farcaster/core": "^0.20.0",
     "@react-three/fiber": "^9.1.2",
-    "express": "^4.21.2",
-    "lucide-react": "^0.468.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.180.0",
     "viem": "^2.24.0",
-    "ws": "^8.18.0"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261113.1",
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
-    "vite": "^6.2.0"
+    "sharp": "^0.35.5",
+    "typescript": "^5.7.0",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.0",
+    "wrangler": "^4.20.0"
   }
 }

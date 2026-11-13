@@ -1,78 +1,61 @@
-# Simcaster ✳
-## Platform requirement: web browser only
+# Simcaster
 
-Simcaster is a **browser game and Farcaster web client**. The supported targets are Chromium, Firefox and Safari on desktop and laptop; smaller browser viewports are responsive. **No iOS/Android native application, React Native/Expo project, app-store packaging, installation requirement, or mobile SDK is in scope.**
+A Farcaster client you live in. Sims-style town: click to walk, click people and places for actions,
+read casts where they happen, keep an apartment, earn and spend in-game DEGEN.
 
-The application is delivered via HTTPS in the browser, with WebGL2 rendering and WebSocket multiplayer. WASD/arrow keys move characters; drag the scene to orbit the camera; use the scroll wheel to zoom; Space fires in Laser Tag. The backend requires a long-lived Node host that supports WebSockets. A static host or serverless-only environment is insufficient for the full stack.
+This is the ground-up rebuild (`rebuild/v2`). Nothing from the old Express/React build is reused.
 
+## Stack
 
-**The internet, but you live in it.** A Farcaster-connected social client with an explorable procedural 3D city, real-time player avatars, private apartments and a mini-game arcade.
+| Part | What |
+| --- | --- |
+| Client | Vite, React 19, three.js via @react-three/fiber, zustand |
+| Server | Cloudflare Worker (`worker/index.ts`) |
+| Realtime | One Durable Object per room (`worker/room.ts`), WebSocket hibernation, no tick loop |
+| Data | D1 (`migrations/`) |
+| Shared rules | `shared/` is imported by both sides: map, pathfinding, movement, catalog, protocol |
+| Art | CC0 KayKit model kits, packed by `scripts/build-assets.mjs` (see `CREDITS.md`) |
 
-**This is an early playable vertical slice**, not a production-ready client or a complete Sims-style life simulator.
+## Run it
 
-## Local quick start (Node 22+)
-
-    cp .env.example .env
     npm install
-    npm run dev
+    printf 'DEMO_MODE=true\n' > .dev.vars      # name-only sign-in for local play
+    npm run db:local
+    npm run preview                            # builds, then serves everything on http://localhost:8787
 
-Open http://localhost:5173. The Vite development server proxies HTTP and WebSocket connections to port 3001. Enable SIMCASTER_DEMO_MODE=true only for development. Open a second incognito window and use a different demo name to test multiplayer.
+`npm run dev` runs Vite (5173, hot reload) next to the Worker (8787). `npm test` runs the rule tests,
+`npm run typecheck` checks all three codebases.
 
-- World: WASD/arrow keys, drag to orbit, scroll wheel to zoom, multiplayer chat and player interaction emotes.
-- Arcade: Laser Tag, 2–8 players per room; face your opponent, Space/FIRE to shoot; first to 7 scores wins.
-- Apartment: add furniture and inspect your private home.
-- Feed: actual Neynar following/trending casts only with NEYNAR_API_KEY. Fictional examples are clearly marked in demo mode.
+## Deploy
 
-    npm test
-    npm run build
-    npm start
+    npx wrangler d1 create simcaster           # paste the id into wrangler.jsonc
+    npm run db:remote
+    npx wrangler secret put NEYNAR_API_KEY     # optional: live feeds and profiles
+    npm run deploy
 
-For production-mode local serving, set APP_ORIGIN=http://localhost:3001 and PORT=3001. Set APP_ORIGIN to your precise HTTPS origin in deployment; the server enforces it during mutating HTTP requests and WebSocket upgrades.
+Leave `DEMO_MODE` as `"false"` in production. Sign in with Farcaster verifies against the request
+host, so serve it from the domain users will see.
 
-## Farcaster
+## How it works
 
-The Sign in with Farcaster flow uses an API-issued, one-time, 5-minute nonce, backend signature verification via @farcaster/auth-client and an httpOnly session cookie. Configure NEYNAR_API_KEY for profile lookup and live social feed, and OPTIMISM_RPC_URL with a reliable RPC. No API keys are embedded in the browser.
+- **Movement.** A click runs A* on the shared nav grid and the sim starts walking at once. The path
+  goes to the room object, which validates it (start near the server's position, every segment
+  walkable, bounded length) and relays it. Every client replays the same path from the same server
+  timestamp, so there is no per-frame position traffic and nothing to rubber-band.
+- **Authority.** DEGEN, XP and needs change only in `settle()` on the server. Activities are paid on
+  completion, checked against the server clock and the sim's server-side position. Needs decay lazily
+  from a timestamp.
+- **Rendering.** All static scenery is merged into one mesh per material (the whole town is a single
+  atlas material). Sims use a blob shadow; the shadow map is baked only when the scene changes.
+  Transforms never pass through React state.
+- **Farcaster.** Channels are places: each board in the plaza shows a channel (casts whose
+  `parentUrl` is `https://farcaster.xyz/~/channel/<id>`), and recent authors stand beside it.
+  Feeds come from Neynar through the Worker; without a key the feed is sample data and says so.
 
-The feed offers a native cast composer, conversations, likes and recasts when a **per-user approved Neynar signer** is connected. Sign in With Farcaster alone provides *read access only*; it does not grant write access.
+## Not built yet
 
-For an in-app user consent flow, create a Neynar App at https://dev.neynar.com, register your deployment's HTTPS origin as an authorized origin, then set `NEYNAR_CLIENT_ID` (a public client identifier) on Render. Users will see Neynar's explicit authorization prompt in the feed, and Simcaster verifies that the returned signer belongs to the logged-in FID before storing it server-side. Without a Neynar Client ID, the in-app write connection cannot be completed by ordinary users; linking a previously approved signer UUID is available as an advanced fallback.
-
-Do not use your account seed phrase, custody private key or password in Simcaster's signer form. Neynar may charge a fee when a signer is approved. Do not create new signers unnecessarily. This is not yet a fully tested production publishing flow.
-
-When NODE_ENV=production, SIMCASTER_DEMO_MODE=true is explicitly rejected.
-
-## Layout
-
-- src/main.jsx: React app, sign-in, feed, dashboard, profile/home editors and arcade screens.
-- src/WorldView.jsx: Three.js React Three Fiber scene and world/arena/home UI.
-- src/AvatarFigure.jsx and src/SimDiorama.jsx: customizable animated 3D avatars and interactive home-page diorama.
-- src/NeynarWriteConnect.jsx: Neynar's optional explicit user write-authorization widget.
-- src/styles.css: responsive visual system.
-- server/index.js: Express API, SIWF auth, Neynar API proxy.
-- server/world.js: WebSocket world authority, matchmaking per room, movement, chat and Laser Tag.
-- server/storage.js: atomic single-process file-backed state.
-- server/rules.js: input validation and authoritative game rules.
-- tests/: node:test suite.
-- docs/: API contracts, scope and release gates.
-
-## Important production caveats
-
-The current persistence is .data/simcaster.json (atomic file replacement). It is **single-process**, not suitable for horizontally scaled production use. Session revocation, game scores and home data need PostgreSQL plus backed-up migrations; room matchmaking needs a distributed coordinator such as Colyseus/Redis, and more advanced moderation. Incoming room chat has basic length/rate controls but no operational moderation dashboard. Homes support visits by accepted Simcaster friends (8 occupants per room). Shooter hit detection has no obstacle occlusion and is prototype quality. There is no installation flow or native application.
-
-Read docs/MVP_SCOPE.md and docs/API.md before publicly deploying.
-
-No copyrighted The Sims, Lagos Life or Claude-of-Duty game assets have been copied into this repository.
-
-Multiplayer public rooms can be shared using the Invite button in the world UI. Player lists include Block and Report actions; reports are stored locally and require an operational moderation workflow before production.
-
-## In-world friendships
-
-Click another player avatar and choose **Add friend**. The recipient can accept or decline from the **Friends & requests** sidebar page. Friendships are stored only in Simcaster; they do not follow/unfollow Farcaster accounts. Blocking a player also removes any existing Simcaster friendship.
-
-### Visiting apartments
-
-Accepted friends can click **Visit home** on the Friends page. They join the homeowner's private WebSocket room, see the saved furniture layout, and interact with other visitors. The owner retains exclusive decoration permission. Requests from non-friends are rejected by the API and by the WebSocket handshake.
-
-## Browser deployment
-
-See [Deployment](docs/DEPLOYMENT.md) and the root Dockerfile for running the browser website and WebSocket backend on one long-lived Node host. A static-only Vercel deployment cannot provide real-time rooms or authentication. The temporary sandbox preview is not permanent hosting.
+- In-app posting, likes and recasts (needs a per-user signer). Casting opens Farcaster's composer.
+- Farcaster direct messages. They are not part of the protocol; whispers are in-room only.
+- Laser tag, friends lists, tipping between players, moderation tools, room sharding (one town, 48 sims).
+- Characters are KayKit adventurers because that is the CC0 rig available; they share one skeleton,
+  so swapping in modern outfits is an asset change, not a code change.

@@ -1,9 +1,5 @@
-node_modules/
-dist/
-.env
-.env.local
-.data/
-coverage/
+node_modules
+dist
+.wrangler
+.dev.vars
 *.log
-.DS_Store
-.agents/
