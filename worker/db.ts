@@ -9,6 +9,8 @@ export interface Env {
   DEMO_MODE?: string;
   NEYNAR_API_KEY?: string;
   OPTIMISM_RPC_URL?: string;
+  /** Only for previews behind a proxy that rewrites the host. Leave unset on Cloudflare. */
+  PUBLIC_HOST?: string;
 }
 
 export interface UserRow {
@@ -130,8 +132,8 @@ export async function sessionUser(db: D1Database, req: Request): Promise<UserRow
   ).bind(await sha256(token), Date.now()).first<UserRow>();
 }
 
-export function sessionCookie(req: Request, token: string | null): string {
-  const secure = new URL(req.url).protocol === 'https:' || req.headers.get('X-Forwarded-Proto') === 'https';
+export function sessionCookie(req: Request, token: string | null, env?: Env): string {
+  const secure = new URL(req.url).protocol === 'https:' || !!env?.PUBLIC_HOST;
   const base = `${COOKIE}=${token ?? ''}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
   return token ? `${base}; Max-Age=${SESSION_MS / 1000}` : `${base}; Max-Age=0`;
 }

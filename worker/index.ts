@@ -17,11 +17,18 @@ async function body<T = Record<string, unknown>>(req: Request): Promise<T> {
   try { return (await req.json()) as T; } catch { return {} as T; }
 }
 
+/**
+ * The host users see. On Cloudflare that is simply the request host. PUBLIC_HOST exists only for
+ * previews behind another proxy; client-supplied forwarding headers are never trusted, because the
+ * Sign in with Farcaster domain check depends on this value.
+ */
+const publicHost = (req: Request, env: Env) => env.PUBLIC_HOST || new URL(req.url).host;
+
 /** Cookie auth + JSON bodies: refuse cross-site writes outright. */
-function sameOrigin(req: Request): boolean {
+function sameOrigin(req: Request, env: Env): boolean {
   const origin = req.headers.get('Origin');
   if (!origin) return true; // non-browser clients send no Origin and carry no ambient cookie
-  try { return new URL(origin).host === (req.headers.get('X-Forwarded-Host') || new URL(req.url).host); } catch { return false; }
+  try { return new URL(origin).host === publicHost(req, env); } catch { return false; }
 }
 
 // ---------------------------------------------------------------- Farcaster data (Neynar)
@@ -82,7 +89,7 @@ async function feed(env: Env, user: UserRow, type: string, channel: string | nul
 async function api(req: Request, env: Env, url: URL): Promise<Response> {
   const path = url.pathname.slice(4);
   const method = req.method;
-  if (method !== 'GET' && !sameOrigin(req)) return fail('Cross-site request refused', 403);
+  if (method !== 'GET' && !sameOrigin(req, env)) return fail('Cross-site request refused', 403);
   const demo = env.DEMO_MODE === 'true';
 
   if (path === '/config' && method === 'GET') return json({ demo, liveFeed: !!env.NEYNAR_API_KEY });
@@ -104,8 +111,7 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
     if (!used.meta.changes) return fail('Sign-in request expired. Try again.', 401);
     const { createAppClient, viemConnector } = await import('@farcaster/auth-client');
     const client = createAppClient({ ethereum: viemConnector({ rpcUrl: env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io' }) });
-    const host = req.headers.get('X-Forwarded-Host') || url.host;
-    const result = await client.verifySignInMessage({ nonce: b.nonce, domain: host, message: b.message, signature: b.signature as `0x${string}` });
+    const result = await client.verifySignInMessage({ nonce: b.nonce, domain: publicHost(req, env), message: b.message, signature: b.signature as `0x${string}` });
     if (!result.success || !result.fid) return fail('Signature could not be verified', 401);
     const fid = Number(result.fid);
     // Only the fid is signed. Profile fields come from Neynar when configured, else from the wallet app's relay.
@@ -117,7 +123,7 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
       } catch { /* keep relay profile */ }
     }
     const row = await upsertUser(env.DB, { fid, ...profile, demo: false });
-    return json({ me: toMe(row) }, 200, { 'Set-Cookie': sessionCookie(req, await createSession(env.DB, fid)) });
+    return json({ me: toMe(row) }, 200, { 'Set-Cookie': sessionCookie(req, await createSession(env.DB, fid), env) });
   }
 
   if (path === '/auth/demo' && method === 'POST') {
@@ -127,13 +133,13 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
     if (name.length < 2) return fail('Enter a name (2+ characters)');
     const fid = 900_000_000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 90_000_000);
     const row = await upsertUser(env.DB, { fid, username: 'demo-' + fid, displayName: name, pfpUrl: null, demo: true });
-    return json({ me: toMe(row) }, 200, { 'Set-Cookie': sessionCookie(req, await createSession(env.DB, fid)) });
+    return json({ me: toMe(row) }, 200, { 'Set-Cookie': sessionCookie(req, await createSession(env.DB, fid), env) });
   }
 
   if (path === '/auth/logout' && method === 'POST') {
     const token = readCookie(req, COOKIE);
     if (token) await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256(token)).run();
-    return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(req, null) });
+    return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(req, null, env) });
   }
 
   const user = await sessionUser(env.DB, req);
@@ -242,7 +248,7 @@ export default {
       if (url.pathname.startsWith('/api/')) return await api(req, env, url);
       if (url.pathname.startsWith('/ws/')) {
         if (req.headers.get('Upgrade') !== 'websocket') return fail('Expected websocket', 426);
-        if (!sameOrigin(req)) return fail('Cross-site socket refused', 403);
+        if (!sameOrigin(req, env)) return fail('Cross-site socket refused', 403);
         const user = await sessionUser(env.DB, req);
         if (!user) return fail('Sign in first', 401);
         let room = decodeURIComponent(url.pathname.slice(4));
