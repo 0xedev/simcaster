@@ -521,8 +521,10 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
 
   // Game 4: Onchain Tower Stacker state
   const [stackFloors, setStackFloors] = useState(1);
-  const [stackSlider, setStackSlider] = useState(50);
-  const [stackDir, setStackDir] = useState(1);
+  // Slider position lives in a ref and is written straight to the DOM each animation frame,
+  // so the moving block is smooth and does not re-render the whole Arcade page 22x/second.
+  const stackSliderRef = useRef(50);
+  const stackBlockEl = useRef(null);
   const [stackStatus, setStackStatus] = useState('Drop blocks inside the purple target zone to stack DEGEN!');
 
   useEffect(() => {
@@ -541,21 +543,27 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
 
   useEffect(() => {
     if (activeGame !== 'stacker') return;
-    const timer = setInterval(() => {
-      setStackSlider((prev) => {
-        let next = prev + stackDir * 4.5;
-        if (next >= 92) {
-          setStackDir(-1);
-          next = 92;
-        } else if (next <= 8) {
-          setStackDir(1);
-          next = 8;
-        }
-        return next;
-      });
-    }, 45);
-    return () => clearInterval(timer);
-  }, [activeGame, stackDir]);
+    let raf = 0;
+    let dir = 1;
+    let last = performance.now();
+    const tick = (t) => {
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+      let next = stackSliderRef.current + dir * 100 * dt;
+      if (next >= 92) {
+        dir = -1;
+        next = 92;
+      } else if (next <= 8) {
+        dir = 1;
+        next = 8;
+      }
+      stackSliderRef.current = next;
+      if (stackBlockEl.current) stackBlockEl.current.style.left = next + '%';
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [activeGame]);
 
   async function claimArcadeDegen(gameName, amount, onReset) {
     if (claiming || amount <= 0) return;
@@ -601,6 +609,8 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
   }
 
   function hitCatcherTarget(target) {
+    // Round over: targets stop paying until a new round is started.
+    if (!catcherRunning && catcherTime !== 15) return;
     soundEngine.playCash();
     if (!catcherRunning && catcherTime === 15) setCatcherRunning(true);
     setCatcherScore((prev) => prev + target.val);
@@ -626,7 +636,7 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
   }
 
   function dropStackBlock() {
-    const inZone = stackSlider >= 24 && stackSlider <= 76;
+    const inZone = stackSliderRef.current >= 24 && stackSliderRef.current <= 76;
     if (inZone) {
       soundEngine.playCash();
       const nextFloors = Math.min(8, stackFloors + 1);
@@ -805,6 +815,7 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
                 type="button"
                 className="catcher-target-btn"
                 style={{ left: `${t.x}%`, top: `${t.y}%` }}
+                disabled={!catcherRunning && catcherTime !== 15}
                 onClick={() => hitCatcherTarget(t)}
               >
                 <span className="catcher-emoji">{t.icon}</span>
@@ -854,7 +865,7 @@ function Arcade({onPlay,leaderboard,user,onUserUpdate,notify,onRefreshLeaderboar
           <p style={{margin:'0 0 10px',color:'#5c5375'}}>{stackStatus}</p>
           <div className="stacker-track">
             <div className="stacker-target-zone">TARGET ZONE</div>
-            <div className="stacker-slider-block" style={{ left: `${stackSlider}%` }}>
+            <div className="stacker-slider-block" ref={stackBlockEl} style={{ left: `${stackSliderRef.current}%` }}>
               🟣 BLOCK
             </div>
           </div>

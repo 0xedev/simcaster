@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { createAvatarAnimationClips, createSkinnedTorsoMesh } from './skeletal.js';
+import StaticBatch from './StaticBatch.jsx';
 
 export const shirtColors = { violet: '#8d64f7', citrus: '#eec35b', coral: '#ff898a', mint: '#5dd3ba', sky: '#73bff2' };
 export const skinColors = { warm: '#d9a989', light: '#f0c5a3', tan: '#c8885d', deep: '#875434', dark: '#523322' };
@@ -27,6 +28,8 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
   const build = avatar.build === 'slim' ? 0.82 : avatar.build === 'broad' ? 1.2 : 1;
   const outfit = avatar.outfit || 'street';
   const style = avatar.hair || 'short';
+
+  const batchDeps = [shirt, skin, hair, build, outfit, style, avatar.accessory];
 
   const skinnedTorso = useMemo(() => createSkinnedTorsoMesh(shirt, build), [shirt, build]);
 
@@ -102,6 +105,8 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         {/* Skinned Torso */}
         <primitive object={skinnedTorso.skinnedMesh} position={[0, 0.88, 0]} />
 
+        {/* Rigid parts of the torso: one draw call per material instead of one per mesh */}
+        <StaticBatch deps={batchDeps}>
         {/* Belt / Waistband */}
         <mesh position={[0, 0.56, 0]} scale={[build, 1, 0.96]}>
           <cylinderGeometry args={[0.345, 0.345, 0.09, 20]} />
@@ -109,7 +114,7 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         </mesh>
 
         {/* Neck */}
-        <mesh position={[0, 1.32, 0]} castShadow>
+        <mesh position={[0, 1.32, 0]}>
           <cylinderGeometry args={[0.13, 0.15, 0.22, 14]} />
           <meshStandardMaterial color={skin} roughness={0.75} />
         </mesh>
@@ -145,14 +150,16 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
           </mesh>
         )}
 
+        </StaticBatch>
+
         {/* Left Leg & Sneaker */}
         <group ref={leftLeg} name="leftLeg" position={[-0.16, 0.48, 0]}>
-          <mesh position={[0, -0.18, 0]} castShadow>
+          <mesh position={[0, -0.18, 0]}>
             <capsuleGeometry args={[0.145, 0.34, 6, 12]} />
             <meshStandardMaterial color={clothDark} roughness={0.8} />
           </mesh>
           <group position={[-0.02, -0.38, 0.08]}>
-            <mesh castShadow>
+            <mesh>
               <boxGeometry args={[0.27, 0.14, 0.46]} />
               <meshStandardMaterial color={shirt} roughness={0.5} />
             </mesh>
@@ -165,12 +172,12 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
 
         {/* Right Leg & Sneaker */}
         <group ref={rightLeg} name="rightLeg" position={[0.16, 0.48, 0]}>
-          <mesh position={[0, -0.18, 0]} castShadow>
+          <mesh position={[0, -0.18, 0]}>
             <capsuleGeometry args={[0.145, 0.34, 6, 12]} />
             <meshStandardMaterial color={clothDark} roughness={0.8} />
           </mesh>
           <group position={[0.02, -0.38, 0.08]}>
-            <mesh castShadow>
+            <mesh>
               <boxGeometry args={[0.27, 0.14, 0.46]} />
               <meshStandardMaterial color={shirt} roughness={0.5} />
             </mesh>
@@ -185,11 +192,11 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         {[-1, 1].map((side) => (
           <group key={side} position={[side * (0.38 * build), 1.16, 0]} rotation={[0, 0, side * 0.08]}>
             <group ref={side === 1 ? rightArm : leftArm} name={side === 1 ? 'rightArm' : 'leftArm'}>
-              <mesh position={[0, -0.18, 0]} castShadow>
+              <mesh position={[0, -0.18, 0]}>
                 <capsuleGeometry args={[0.115, 0.36, 6, 12]} />
                 <meshStandardMaterial color={outfit === 'formal' ? '#4c3863' : shirt} roughness={0.7} />
               </mesh>
-              <mesh position={[0, -0.44, 0]} castShadow>
+              <mesh position={[0, -0.44, 0]}>
                 <sphereGeometry args={[0.115, 14, 12]} />
                 <meshStandardMaterial color={skin} roughness={0.75} />
               </mesh>
@@ -197,8 +204,10 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
           </group>
         ))}
 
+        {/* Head, hair, face and accessories never move relative to the body: batch them */}
+        <StaticBatch deps={batchDeps}>
         {/* Head */}
-        <mesh position={[0, 1.62, 0]} castShadow>
+        <mesh position={[0, 1.62, 0]}>
           <sphereGeometry args={[0.35, 24, 20]} />
           <meshStandardMaterial color={skin} roughness={0.72} />
         </mesh>
@@ -212,7 +221,7 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         ))}
 
         {/* Base Hair Cap */}
-        <mesh position={[0, 1.76, -0.05]} castShadow scale={[1.05, 0.88, 1.08]}>
+        <mesh position={[0, 1.76, -0.05]} scale={[1.05, 0.88, 1.08]}>
           <sphereGeometry args={[0.355, 22, 16]} />
           <meshStandardMaterial color={hair} roughness={0.65} />
         </mesh>
@@ -224,20 +233,20 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         )}
         {style === 'curls' &&
           [-0.22, -0.08, 0.08, 0.22].map((x, i) => (
-            <mesh key={i} position={[x, 1.96, 0.12 + (i % 2) * 0.03]} castShadow>
+            <mesh key={i} position={[x, 1.96, 0.12 + (i % 2) * 0.03]}>
               <sphereGeometry args={[0.155, 14, 12]} />
               <meshStandardMaterial color={hair} roughness={0.65} />
             </mesh>
           ))}
         {style === 'long' &&
           [-1, 1].map((s) => (
-            <mesh key={s} position={[s * 0.26, 1.48, -0.08]} castShadow>
+            <mesh key={s} position={[s * 0.26, 1.48, -0.08]}>
               <capsuleGeometry args={[0.12, 0.5, 6, 12]} />
               <meshStandardMaterial color={hair} roughness={0.65} />
             </mesh>
           ))}
         {style === 'short' && (
-          <mesh position={[0, 1.89, 0.07]} scale={[1.02, 0.52, 1.04]} castShadow>
+          <mesh position={[0, 1.89, 0.07]} scale={[1.02, 0.52, 1.04]}>
             <sphereGeometry args={[0.345, 18, 14]} />
             <meshStandardMaterial color={hair} roughness={0.65} />
           </mesh>
@@ -296,7 +305,7 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
         )}
         {avatar.accessory === 'cap' && (
           <>
-            <mesh position={[0, 1.94, 0.01]} castShadow>
+            <mesh position={[0, 1.94, 0.01]}>
               <cylinderGeometry args={[0.34, 0.35, 0.18, 20]} />
               <meshStandardMaterial color="#2a2448" roughness={0.6} />
             </mesh>
@@ -327,6 +336,7 @@ export default function AvatarFigure({ avatar = {}, emote = '', animate = true, 
               <meshStandardMaterial color="#fbbf24" metalness={0.85} roughness={0.15} />
             </mesh>
           ))}
+        </StaticBatch>
       </group>
     </group>
   );

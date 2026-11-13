@@ -3,6 +3,7 @@ import AvatarFigure from './AvatarFigure.jsx';
 import CastPhone from './CastPhone.jsx';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import StaticBatch from './StaticBatch.jsx';
 import {
   ArrowLeft,
   Send,
@@ -27,7 +28,25 @@ import {
 } from 'lucide-react';
 import { soundEngine } from './sound.js';
 import { loadGltfModel } from './skeletal.js';
-import { DISTRICTS, getPlazaDistrict, movement, collidesWithPlaza, collidesWithArena } from '../server/rules.js';
+import {
+  DISTRICTS,
+  getPlazaDistrict,
+  movement,
+  collidesWithPlaza,
+  collidesWithArena,
+  WORLD_SIZE,
+  ARENA_SIZE
+} from '../server/rules.js';
+
+// Mirrors server/world.js: homeBound = HOME_TIERS[tier].bound + 1
+const HOME_BOUNDS = { studio: 5, loft: 7, penthouse: 9 };
+const HUD_COMMIT_MS = 150;
+const MemoAvatarFigure = React.memo(AvatarFigure);
+
+function lerpAngle(a, b, t) {
+  const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  return a + d * t;
+}
 
 const HEX = { violet: '#8d64f7', citrus: '#eec35b', coral: '#ff898a', mint: '#5dd3ba', sky: '#73bff2' };
 
@@ -131,6 +150,8 @@ const DEFAULT_HOTSPOTS = [
     ]
   }
 ];
+
+const EMPTY_LIST = [];
 
 const ARENA_BUNKERS = [
   [-7.5, -7.5, 2.2, 2.2],
@@ -417,7 +438,7 @@ function TransitPod({ night, blackout }) {
   return (
     <group ref={ref} position={[7.4, 0, 0]}>
       {/* Autonomous Farcaster Transit Pod body */}
-      <mesh castShadow position={[0, 0.62, 0]}>
+      <mesh position={[0, 0.62, 0]}>
         <boxGeometry args={[1.25, 0.9, 2.3]} />
         <meshStandardMaterial color="#f4effe" roughness={0.35} />
       </mesh>
@@ -661,7 +682,7 @@ function DistrictKiosk({ district, cast, pos, rotY, onOpenChannel, blackout }) {
   );
 }
 
-function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, timePhase, cityEvent }) {
+const Plaza = React.memo(function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, timePhase, cityEvent }) {
   const night = timePhase === 'night';
   const blackout = cityEvent === 'blackout';
   return (
@@ -777,15 +798,17 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, time
           />
         );
       })}
-      {BUILDINGS.map((item, i) => (
-        <Building key={i} item={item} index={i} night={night} blackout={blackout} />
-      ))}
-      {STREET_LAMPS.map(([lx, lz], i) => (
-        <StreetLamp key={i} x={lx} z={lz} night={night} blackout={blackout} />
-      ))}
-      {TREES.map(([x, z], i) => (
-        <Tree key={i} x={x} z={z} />
-      ))}
+      <StaticBatch deps={[night, blackout]}>
+        {BUILDINGS.map((item, i) => (
+          <Building key={i} item={item} index={i} night={night} blackout={blackout} />
+        ))}
+        {STREET_LAMPS.map(([lx, lz], i) => (
+          <StreetLamp key={i} x={lx} z={lz} night={night} blackout={blackout} />
+        ))}
+        {TREES.map(([x, z], i) => (
+          <Tree key={i} x={x} z={z} />
+        ))}
+      </StaticBatch>
       {hotspots.map((spot) => (
         <HotspotMarker
           key={spot.id}
@@ -816,7 +839,7 @@ function Plaza({ hotspots, activeHotspotId, onSelectHotspot, onOpenChannel, time
       ))}
     </group>
   );
-}
+});
 
 function ArenaPowerup({ powerup }) {
   const ref = useRef();
@@ -842,7 +865,7 @@ function ArenaPowerup({ powerup }) {
   );
 }
 
-function Arena({ powerup, beams = [] }) {
+const Arena = React.memo(function Arena({ powerup, beams = EMPTY_LIST }) {
   return (
     <group>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
@@ -916,7 +939,7 @@ function Arena({ powerup, beams = [] }) {
       ))}
     </group>
   );
-}
+});
 
 function Furniture({ item, index, onUse }) {
   const rotY = ((item.rot || 0) * Math.PI) / 180;
@@ -1023,7 +1046,7 @@ function Furniture({ item, index, onUse }) {
   );
 }
 
-function Home({ items = [], tier = 'studio', onUseFurniture }) {
+const Home = React.memo(function Home({ items = EMPTY_LIST, tier = 'studio', onUseFurniture }) {
   const size = tier === 'penthouse' ? 22 : tier === 'loft' ? 16 : 12;
   const half = size / 2;
   const floorCol = tier === 'penthouse' ? '#f6efe9' : tier === 'loft' ? '#e7d2bc' : '#f3e5d8';
@@ -1062,7 +1085,7 @@ function Home({ items = [], tier = 'studio', onUseFurniture }) {
       <Tree x={half + 3} z={5} />
     </group>
   );
-}
+});
 
 function AvatarName({ name, you, bubble, career, powerBadge }) {
   const texture = useMemo(() => {
@@ -1115,20 +1138,32 @@ function AvatarName({ name, you, bubble, career, powerBadge }) {
   );
 }
 
-function Avatar({ p, you, emote, onSelect }) {
+function Avatar({ p, you, emote, onSelect, live }) {
   const groupRef = useRef();
   const [moving, setMoving] = useState(false);
-  const lastPos = useRef({ x: p.x, z: p.z });
+  const lastTarget = useRef({ x: p.x, z: p.z });
+  const stillFrames = useRef(0);
+  // Snapshots deliver a fresh avatar object every tick; keep a stable reference so the
+  // ~35-mesh figure only re-renders when the look actually changes.
+  const avatarKey = JSON.stringify(p.avatar || null);
+  const avatar = useMemo(() => p.avatar, [avatarKey]);
 
   useFrame((_, dt) => {
-    if (!groupRef.current) return;
-    const lerpRate = you ? Math.min(1, dt * 20) : Math.min(1, dt * 14);
-    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, p.x, lerpRate);
-    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, p.z, lerpRate);
-    groupRef.current.rotation.y = p.heading || 0;
-    const speed = Math.hypot(p.x - lastPos.current.x, p.z - lastPos.current.z);
-    lastPos.current = { x: p.x, z: p.z };
-    const isNowMoving = speed > 0.004 || Math.hypot(groupRef.current.position.x - p.x, groupRef.current.position.z - p.z) > 0.06;
+    const g = groupRef.current;
+    if (!g) return;
+    // Position/heading come straight from the network/prediction buffer, never via setState.
+    const t = live?.current.get(p.id) || p;
+    const rate = 1 - Math.exp(-dt * (you ? 22 : 12));
+    g.position.x += (t.x - g.position.x) * rate;
+    g.position.z += (t.z - g.position.z) * rate;
+    g.rotation.y = lerpAngle(g.rotation.y, t.heading || 0, 1 - Math.exp(-dt * 16));
+    const targetMoved = Math.hypot(t.x - lastTarget.current.x, t.z - lastTarget.current.z) > 0.002;
+    lastTarget.current.x = t.x;
+    lastTarget.current.z = t.z;
+    const lag = Math.hypot(g.position.x - t.x, g.position.z - t.z) > 0.08;
+    // Targets only change every ~55-100ms, so debounce "stopped" to avoid walk/idle flicker.
+    stillFrames.current = targetMoved || lag ? 0 : stillFrames.current + 1;
+    const isNowMoving = stillFrames.current < 10;
     if (isNowMoving !== moving) setMoving(isNowMoving);
   });
 
@@ -1150,8 +1185,8 @@ function Avatar({ p, you, emote, onSelect }) {
         </mesh>
       )}
       <AvatarName name={p.name || 'Player'} you={you} bubble={p.bubble} career={p.career} powerBadge={!!p.powerBadge} />
-      <AvatarFigure
-        avatar={p.avatar}
+      <MemoAvatarFigure
+        avatar={avatar}
         emote={emote}
         moving={moving}
         shielded={!!p.shielded}
@@ -1179,7 +1214,7 @@ function Avatar({ p, you, emote, onSelect }) {
   );
 }
 
-function CameraRig({ players, selfId, mode = 'orbit' }) {
+function CameraRig({ live, selfId, mode = 'orbit' }) {
   const canvas = useThree((s) => s.gl.domElement);
   const orbit = useRef({ theta: 0.72, phi: 0.56, distance: 19.5, dragging: false, x: 0, y: 0, pointerId: null });
   const goal = useMemo(() => new THREE.Vector3(), []);
@@ -1232,7 +1267,7 @@ function CameraRig({ players, selfId, mode = 'orbit' }) {
   }, [canvas]);
 
   useFrame(({ camera }) => {
-    const me = players.find((p) => p.id === selfId);
+    const me = live.current.get(selfId);
     const x = me?.x || 0;
     const z = me?.z || 0;
     const heading = me?.heading || 0;
@@ -1554,6 +1589,29 @@ export function TipBurstFX({ bursts = [], onComplete }) {
   );
 }
 
+// The lit scene is static (avatars use a contact-shadow disc), so render the shadow map only
+// when the scene content changes instead of re-drawing every caster every frame.
+function StaticShadows({ kind, homeItems, homeTier }) {
+  const gl = useThree((s) => s.gl);
+  const pending = useRef(0);
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    return () => {
+      gl.shadowMap.autoUpdate = true;
+    };
+  }, [gl]);
+  useEffect(() => {
+    pending.current = 10;
+  }, [kind, homeItems, homeTier]);
+  useFrame(() => {
+    if (pending.current > 0) {
+      pending.current -= 1;
+      gl.shadowMap.needsUpdate = true;
+    }
+  });
+  return null;
+}
+
 function Scene({
   players,
   npcs = [],
@@ -1574,7 +1632,8 @@ function Scene({
   powerup,
   beams,
   cameraMode,
-  onUseFurniture
+  onUseFurniture,
+  live
 }) {
   const isNight = timePhase === 'night' || cityEvent === 'blackout';
   const isSunset = timePhase === 'sunset';
@@ -1633,13 +1692,14 @@ function Scene({
         />
       )}
       {players.map((p) => (
-        <Avatar key={p.id} p={p} you={p.id === selfId} emote={effects[p.id]} onSelect={onSelect} />
+        <Avatar key={p.id} p={p} you={p.id === selfId} emote={effects[p.id]} onSelect={onSelect} live={live} />
       ))}
       {npcs.map((n) => (
-        <Avatar key={n.id} p={n} you={false} emote={null} onSelect={onSelect} />
+        <Avatar key={n.id} p={n} you={false} emote={null} onSelect={onSelect} live={live} />
       ))}
       <TipBurstFX bursts={tipBursts} onComplete={onTipBurstComplete} />
-      <CameraRig players={players} selfId={selfId} mode={cameraMode} />
+      <CameraRig live={live} selfId={selfId} mode={cameraMode} />
+      <StaticShadows kind={kind} homeItems={homeItems} homeTier={homeTier} />
     </>
   );
 }
@@ -1672,10 +1732,21 @@ export default function WorldView({
   const [liveHomeTier, setLiveHomeTier] = useState(homeTier);
   useEffect(() => setLiveHomeItems(homeItems), [homeItems]);
   useEffect(() => setLiveHomeTier(homeTier), [homeTier]);
+  useEffect(() => {
+    homeTierRef.current = liveHomeTier;
+  }, [liveHomeTier]);
 
   const playersRef = useRef([]);
   const npcsRef = useRef([]);
   const selfIdRef = useRef('');
+  // id -> { x, z, heading }. Written by the socket + local prediction, read inside useFrame.
+  // Keeping transforms out of React state is what stops the whole HUD + scene graph
+  // re-rendering ~28x/second.
+  const liveRef = useRef(new Map());
+  const movingRef = useRef(false);
+  const dashUntilRef = useRef(0);
+  const homeTierRef = useRef(homeTier);
+  const hudCommit = useRef({ at: 0, key: '' });
   const [selfId, setSelfId] = useState('');
   const [room, setRoom] = useState('');
   const [state, setState] = useState('Connecting to world…');
@@ -1775,7 +1846,8 @@ export default function WorldView({
     }
     if (target && mePlayer) {
       const heading = Math.atan2(target.x - mePlayer.x, target.z - mePlayer.z);
-      setPlayers((prev) => prev.map((p) => (p.id === selfIdRef.current ? { ...p, heading } : p)));
+      const mine = liveRef.current.get(selfIdRef.current);
+      if (mine) mine.heading = heading;
       ws.current.send(JSON.stringify({ event: 'shoot', data: { targetId: target.id } }));
     } else {
       ws.current.send(JSON.stringify({ event: 'shoot', data: explicitTargetId ? { targetId: explicitTargetId } : {} }));
@@ -1909,6 +1981,8 @@ export default function WorldView({
         playersRef.current = [];
         npcsRef.current = [];
         selfIdRef.current = '';
+        liveRef.current.clear();
+        hudCommit.current = { at: 0, key: '' };
         setPlayers([]);
         setSelfId('');
         ws.current = null;
@@ -1937,14 +2011,76 @@ export default function WorldView({
           }
         }
         if (packet.event === 'snapshot') {
-          playersRef.current = d.players;
-          npcsRef.current = d.npcs || [];
-          setPlayers(d.players);
-          setNpcs(d.npcs || []);
+          const live = liveRef.current;
+          const selfKey = selfIdRef.current;
+          const seen = new Set();
+          let list = Array.isArray(d.players) ? d.players : [];
+          const npcList = Array.isArray(d.npcs) ? d.npcs : [];
+          for (const p of list) {
+            seen.add(p.id);
+            const cur = live.get(p.id);
+            if (!cur) {
+              live.set(p.id, { x: p.x, z: p.z, heading: p.heading || 0 });
+            } else if (p.id === selfKey) {
+              // Reconcile prediction with the server: snap on teleports (warp/respawn),
+              // otherwise ease toward the authoritative position so there is no rubber-banding.
+              const ex = p.x - cur.x;
+              const ez = p.z - cur.z;
+              if (Math.hypot(ex, ez) > 2.5) {
+                cur.x = p.x;
+                cur.z = p.z;
+              } else {
+                const k = movingRef.current ? 0.12 : 0.4;
+                cur.x += ex * k;
+                cur.z += ez * k;
+              }
+            } else {
+              cur.x = p.x;
+              cur.z = p.z;
+              cur.heading = p.heading || 0;
+            }
+          }
+          for (const n of npcList) {
+            seen.add(n.id);
+            const cur = live.get(n.id);
+            if (cur) {
+              cur.x = n.x;
+              cur.z = n.z;
+              cur.heading = n.heading || 0;
+            } else {
+              live.set(n.id, { x: n.x, z: n.z, heading: n.heading || 0 });
+            }
+          }
+          for (const id of live.keys()) if (!seen.has(id)) live.delete(id);
+
+          const mine = live.get(selfKey);
+          if (mine) {
+            list = list.map((p) =>
+              p.id === selfKey ? { ...p, x: +mine.x.toFixed(2), z: +mine.z.toFixed(2), heading: mine.heading } : p
+            );
+          }
+          playersRef.current = list;
+          npcsRef.current = npcList;
+
+          // React (HUD, minimap, name tags) only needs a low-rate copy. Gameplay changes
+          // (roster, hp, score, chat bubbles) commit immediately; positions at ~6Hz.
+          const now = performance.now();
+          const urgentKey =
+            list.map((p) => `${p.id}:${p.hp}:${p.score}:${p.bubble || ''}:${p.shielded ? 1 : 0}`).join('|') +
+            '#' +
+            npcList.map((n) => `${n.id}:${n.hp}:${n.bubble || ''}`).join('|') +
+            '#' +
+            (d.powerup ? `${d.powerup.type}:${d.powerup.x}:${d.powerup.z}` : '');
+          if (urgentKey !== hudCommit.current.key || now - hudCommit.current.at >= HUD_COMMIT_MS) {
+            const powerChanged = urgentKey.split('#')[2] !== hudCommit.current.key.split('#')[2];
+            hudCommit.current = { at: now, key: urgentKey };
+            setPlayers(list);
+            setNpcs(npcList);
+            if (powerChanged) setPowerup(d.powerup || null);
+          }
           setSeconds(d.secondsLeft);
           if (d.timePhase) setTimePhase(d.timePhase);
           setCityEvent(d.cityEvent || null);
-          setPowerup(d.powerup || null);
         }
         if (packet.event === 'home-updated' && kind === 'home') {
           setLiveHomeItems(d.items || []);
@@ -1978,6 +2114,7 @@ export default function WorldView({
         }
         if (packet.event === 'dash') {
           soundEngine.playDash();
+          if (d?.id === selfIdRef.current) dashUntilRef.current = performance.now() + 450;
         }
         if (packet.event === 'shot') {
           if (d.hit) soundEngine.playHit();
@@ -2080,8 +2217,14 @@ export default function WorldView({
     window.addEventListener('keydown', onDown);
     window.addEventListener('keyup', onUp);
 
-    let wasMoving = false;
+    const sent = { dx: 0, dz: 0, at: 0, stopRepeats: 0 };
+    let lastStep = performance.now();
     const interval = setInterval(() => {
+      const nowMs = performance.now();
+      // Real elapsed time: timers are not exact, and the old fixed 0.32s step moved the
+      // local avatar ~3.6x faster than the server allows, so every snapshot yanked it back.
+      const dt = Math.min(0.2, (nowMs - lastStep) / 1000);
+      lastStep = nowMs;
       if (ws.current?.readyState !== 1) return;
       const down = keys.current;
       const rawDx = Number(down.has('d') || down.has('arrowright')) - Number(down.has('a') || down.has('arrowleft')) + touch.current.dx;
@@ -2089,36 +2232,40 @@ export default function WorldView({
       const dx = Math.max(-1, Math.min(1, rawDx));
       const dz = Math.max(-1, Math.min(1, rawDz));
       const isMoving = Math.hypot(dx, dz) > 0.01;
+      movingRef.current = isMoving;
 
-      if (isMoving || wasMoving) {
+      // Send input when it changes, plus a slow keep-alive. The server drops move packets
+      // that arrive <30ms apart, so never let a "stop" be the packet that gets dropped.
+      const changed = dx !== sent.dx || dz !== sent.dz;
+      const sinceSend = nowMs - sent.at;
+      if ((changed && sinceSend >= 36) || (sinceSend >= 120 && (isMoving || sent.stopRepeats > 0))) {
         ws.current.send(JSON.stringify({ event: 'move', data: { dx, dz } }));
-        wasMoving = isMoving;
+        sent.stopRepeats = isMoving ? 2 : changed ? 2 : sent.stopRepeats - 1;
+        sent.dx = dx;
+        sent.dz = dz;
+        sent.at = nowMs;
       }
 
-      // Immediate client-side movement prediction so walking feels instant
-      if (isMoving && selfIdRef.current) {
-        const step = movement({ dx, dz }, 0.32);
+      // Client-side prediction, using the same speed, bounds and per-axis collision
+      // sliding as server/world.js. Writes to the live buffer only: no React render.
+      const mine = liveRef.current.get(selfIdRef.current);
+      const serverMe = playersRef.current.find((p) => p.id === selfIdRef.current);
+      const alive = !serverMe || serverMe.hp === undefined || serverMe.hp > 0;
+      if (isMoving && mine && alive) {
+        const speedMult = dashUntilRef.current > nowMs ? 1.65 : 1;
+        const step = movement({ dx, dz }, dt, undefined, speedMult);
         if (step.dx || step.dz) {
-          const bound = kind === 'arena' ? 12 : kind === 'home' ? 8.5 : 18.5;
-          setPlayers((prev) =>
-            prev.map((p) => {
-              if (p.id !== selfIdRef.current) return p;
-              const nx = Math.max(-bound, Math.min(bound, p.x + step.dx));
-              const nz = Math.max(-bound, Math.min(bound, p.z + step.dz));
-              const blocked =
-                (kind === 'plaza' && collidesWithPlaza(nx, nz)) ||
-                (kind === 'arena' && collidesWithArena(nx, nz));
-              return {
-                ...p,
-                x: blocked ? p.x : +nx.toFixed(2),
-                z: blocked ? p.z : +nz.toFixed(2),
-                heading: Math.atan2(step.dx, step.dz)
-              };
-            })
-          );
+          const bound =
+            kind === 'arena' ? ARENA_SIZE : kind === 'home' ? HOME_BOUNDS[homeTierRef.current] || 5 : WORLD_SIZE;
+          const nx = Math.max(-bound, Math.min(bound, mine.x + step.dx));
+          const nz = Math.max(-bound, Math.min(bound, mine.z + step.dz));
+          const hits = kind === 'plaza' ? collidesWithPlaza : kind === 'arena' ? collidesWithArena : null;
+          if (!hits || !hits(nx, mine.z)) mine.x = nx;
+          if (!hits || !hits(mine.x, nz)) mine.z = nz;
+          mine.heading = Math.atan2(step.dx, step.dz);
         }
       }
-    }, 55);
+    }, 33);
 
     return () => {
       active = false;
@@ -2174,11 +2321,17 @@ export default function WorldView({
     }
   }, [kind, me?.x, me?.z]);
 
-  function handleOpenKioskChannel(districtId) {
+  const handleUseFurniture = React.useCallback((item) => {
+    if (item.type === 'dj_booth') soundEngine.toggleRadio(true);
+    if (ws.current?.readyState === 1) ws.current.send(JSON.stringify({ event: 'use-furniture', data: { type: item.type } }));
+  }, []);
+
+  // Stable identity so the memoised <Plaza> is not re-rendered by HUD updates.
+  const handleOpenKioskChannel = React.useCallback(() => {
     soundEngine.playClick();
     setPhoneApp('feed');
     setPhoneOpen(true);
-  }
+  }, []);
 
   const nearestHotspot = useMemo(() => {
     if (kind !== 'plaza' || !me) return null;
@@ -2310,10 +2463,8 @@ export default function WorldView({
               powerup={powerup}
               beams={beams}
               cameraMode={cameraMode}
-              onUseFurniture={(item) => {
-                if (item.type === 'dj_booth') soundEngine.toggleRadio(true);
-                send('use-furniture', { type: item.type });
-              }}
+              live={liveRef}
+              onUseFurniture={handleUseFurniture}
             />
           </Canvas>
         ) : (

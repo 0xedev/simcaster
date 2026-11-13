@@ -72,7 +72,7 @@ export function createSkinnedTorsoMesh(color = '#8d64f7', buildScale = 1) {
 
   const skinnedMesh = new THREE.SkinnedMesh(geometry, material);
   skinnedMesh.name = 'AvatarSkinnedTorso';
-  skinnedMesh.castShadow = true;
+  skinnedMesh.castShadow = false; // avatars use a contact-shadow disc; shadow map is static
   skinnedMesh.receiveShadow = true;
   skinnedMesh.add(pelvisBone);
   skinnedMesh.bind(skeleton);
